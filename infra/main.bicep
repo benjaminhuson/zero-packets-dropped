@@ -3,7 +3,7 @@
 // infra/deploy.sh runs this for you. Nothing secret lives in this file.
 //
 // What it creates (about £10 a month, mostly the B1 plan):
-//   asp-teamNN-stride            App Service plan, Linux B1
+//   asp-teamNN-stride            App Service plan, Linux (B1 unless appServiceSku says otherwise)
 //   app-teamNN-stride-<suffix>   Web app: serves the Stride front end and the API on one origin
 //   cosmos-teamNN-stride-<sfx>   Cosmos DB, serverless, keys turned off (managed identity only)
 // plus Microsoft sign-in (App Service authentication) once entraClientId is passed in.
@@ -16,6 +16,10 @@ param teamNumber string
 @description('UK South or Italy North only (hackathon rule).')
 @allowed(['uksouth', 'italynorth'])
 param location string = 'uksouth'
+
+@description('App Service plan size. B1 by default; F1 is free (no Always On), S1/P0v3 cost more. Change it if a size has no quota.')
+@allowed(['F1', 'B1', 'S1', 'P0v3'])
+param appServiceSku string = 'B1'
 
 @description('Client (application) id of the teamNN-stride app registration. Leave empty on the first run.')
 param entraClientId string = ''
@@ -88,7 +92,7 @@ resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   location: location
   tags: tags
   kind: 'linux'
-  sku: { name: 'B1', tier: 'Basic' }
+  sku: { name: appServiceSku }
   properties: { reserved: true }
 }
 
@@ -104,7 +108,7 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
     siteConfig: {
       linuxFxVersion: 'NODE|20-lts'
       appCommandLine: 'node dist/server.js'
-      alwaysOn: true // keeps the daily reminder job alive
+      alwaysOn: appServiceSku != 'F1' // keeps the daily reminder job alive; the free tier can't
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true

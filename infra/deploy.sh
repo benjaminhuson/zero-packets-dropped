@@ -15,6 +15,8 @@ STEP="${1:-all}"
 set -a; source "$ROOT/infra/.env"; set +a
 : "${TEAM_NUMBER:?set TEAM_NUMBER in infra/.env}" "${RESOURCE_GROUP:?set RESOURCE_GROUP in infra/.env}"
 LOCATION="${LOCATION:-uksouth}"
+APP_SKU="${APP_SKU:-B1}"
+[[ "$APP_SKU" =~ ^(F1|B1|S1|P0v3)$ ]] || { echo "APP_SKU must be F1, B1, S1 or P0v3"; exit 1; }
 [[ "$TEAM_NUMBER" =~ ^[0-9]{2}$ ]] || { echo "TEAM_NUMBER must be two digits, e.g. 03"; exit 1; }
 [[ "$LOCATION" == "uksouth" || "$LOCATION" == "italynorth" ]] || { echo "LOCATION must be uksouth or italynorth"; exit 1; }
 
@@ -37,7 +39,7 @@ deploy_bicep() { # $1 = client id (may be empty)
   local me; me="$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)"
 
   az deployment group create -g "$RESOURCE_GROUP" -n stride -f "$ROOT/infra/main.bicep" -o none \
-    -p teamNumber="$TEAM_NUMBER" location="$LOCATION" entraClientId="$1" \
+    -p teamNumber="$TEAM_NUMBER" location="$LOCATION" appServiceSku="$APP_SKU" entraClientId="$1" \
        sessionSecret="$session" adminToken="$admin" deployerPrincipalId="$me"
   az deployment group show -g "$RESOURCE_GROUP" -n stride --query properties.outputs.webAppName.value -o tsv > "$STATE/webapp"
   az deployment group show -g "$RESOURCE_GROUP" -n stride --query properties.outputs.hostName.value -o tsv > "$STATE/host"
@@ -58,7 +60,7 @@ ensure_app_registration() { # prints the client id
 }
 
 infra() {
-  echo "1/3 Azure resources ($LOCATION)..."
+  echo "1/3 Azure resources ($LOCATION, App Service $APP_SKU)..."
   local existing; existing="$(az ad app list --display-name "$APP_REG_NAME" --query "[0].appId" -o tsv)"
   deploy_bicep "$existing"
   echo "2/3 App registration $APP_REG_NAME..."

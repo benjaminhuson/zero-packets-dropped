@@ -51,6 +51,8 @@ What `infra` does:
 - **`MissingSubscriptionRegistration` for `Microsoft.DocumentDB` or `Microsoft.Web`**: ask the organisers to register the provider.
 - **Microsoft sign-in asks for admin approval**: the tenant may not allow users to consent. Ask the organisers to grant
   consent for `teamNN-stride` (it only asks for `openid profile email`).
+- **`SubscriptionIsOverQuotaForSku` (quota 0 for B1)**: try `LOCATION=italynorth`, then `APP_SKU=F1` (free, no Always On,
+  so the daily reminder job may not run), or ask the organisers for App Service quota.
 - **Cosmos DB "capacity" errors in UK South**: set `LOCATION=italynorth` in `infra/.env` and run again.
 
 ## Demo users
