@@ -3,6 +3,7 @@ import { CHECKLIST, LBG_VALUES, NEW_STARTER_ROLE, PAGES, TIMELINE } from '../dat
 import { furthestUnlocked, type JourneyState } from '../store';
 import { Horse } from './Horse';
 import { OrgChart } from './OrgChart';
+import { ValuesExplorer } from './ValuesExplorer';
 import { TeamsPanel } from './TeamsPanel';
 
 type Props = {
@@ -141,25 +142,11 @@ export function Journey({ state, daysAway, onGoTo, onComplete, onOpenChecklist, 
             )}
 
             {page.kind === 'values' && (
-              <>
-                <img
-                  className="values-poster"
-                  src="/lbg-values.png"
-                  alt="The five LBG values: People-first, Bold, Inclusive, Sustainable and Trust"
-                />
-                <div className="values-grid">
-                  {LBG_VALUES.map((v) => (
-                    <article key={v.id} className="value-card" style={{ borderTopColor: v.colour }}>
-                      <h3>{v.name}</h3>
-                      <p className="value-tagline">{v.tagline}</p>
-                      <p className="value-behaviour">{v.behaviour}</p>
-                      <p className="value-opposite">
-                        <strong>The opposite is:</strong> {v.opposite}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              </>
+              <ValuesExplorer
+                onAllViewed={() => {
+                  if (!state.ticked.includes('values')) onToggleTask('values');
+                }}
+              />
             )}
 
             {page.kind === 'team' && <OrgChart />}
@@ -195,7 +182,7 @@ export function Journey({ state, daysAway, onGoTo, onComplete, onOpenChecklist, 
               <p className="ok">You have reached the end of your first 90 days.</p>
             ) : (
               <button className="btn primary" onClick={onComplete}>
-                {isLastPage ? 'Finish' : alreadyDone ? 'Next' : 'Mark complete and continue'}
+                {isLastPage ? 'Finish' : alreadyDone ? 'Next' : 'Mark complete'}
               </button>
             )}
           </footer>
