@@ -3,19 +3,22 @@
 Local skeleton for the Stride API. It runs with in-memory storage, a Teams mock and a rule-based Cancara,
 so the team can work in parallel before any Azure resources exist.
 
-Nothing here is deployed. The Azure wiring (Cosmos DB, Graph, Entra ID, Functions) is the next step, and each
-stub says what it needs.
+Sign-in, people (colleague, line manager, buddy) and Cosmos DB storage are built. Hosting is in
+[`infra/README.md`](../infra/README.md). Graph (Teams) and the AI agent are still stubs.
 
 ## Run it
 
 ```bash
 cd backend
 npm install
-npm test          # 9 tests: domain rules, consent gate, nudges, catch-up, Cancara escalation
+npm test          # 17 tests: domain rules, consent gate, nudges, catch-up, Cancara, sign-in and access
 npm run dev       # starts on http://localhost:3001 (PORT in .env)
 ```
 
-Dev auth: send an `x-user-id` header with any string. This is a placeholder until Entra ID is wired in (section 5).
+Dev auth (`AUTH=dev`): send `x-user-id: <starter id>` to act as a new colleague, or `x-dev-entra-upn: name@domain`
+to act as a Microsoft user (manager or buddy). In Azure (`AUTH=easyauth`) these are ignored and App Service
+authentication supplies the user. To try the whole app locally, run the backend, then `cd ../stride && npm run dev`:
+Vite proxies `/api` to port 3001 and the sign-in page shows a dev-only "act as Microsoft user" box.
 
 Quick check:
 
@@ -34,8 +37,12 @@ src/
   api/service.ts        use cases: combines domain + store + gateways. Consent gate lives here.
   api/routes.ts         HTTP routes (thin)
   api/ids.ts            checklist ids for the front end
+  api/people.ts         colleague accounts, invites, Entra linking, manager/buddy access, team thread
+  auth/caller.ts        who is calling: App Service (Entra) headers or the Stride session cookie
+  auth/crypto.ts        password hashing, invite codes, signed session cookie
+  static.ts             serves the built front end (one origin in Azure)
   store/memory.ts       in-memory store (local runs and tests)
-  store/cosmos.ts       Cosmos DB store (stub)
+  store/cosmos.ts       Cosmos DB store (keyless, managed identity)
   teams/mock.ts         Teams mock (local)
   teams/graph.ts        Microsoft Graph / Teams bot (stub)
   agent/rules.ts        Cancara rule-based responder (local)
@@ -43,6 +50,7 @@ src/
   scheduler/reminders.ts  daily catch-up job (idempotent)
   config.ts, server.ts  settings and entry point
 test/journey.test.ts    behaviour tests
+test/people.test.ts     sign-in and access tests
 ```
 
 ## The five sections
@@ -73,7 +81,6 @@ Ask the organisers for these now. Admin consent can take time, and it is the mos
 
 ## Known gaps (deliberate for the skeleton)
 
-- In-memory data: a restart loses everything.
-- `x-user-id` is not authentication. Do not expose this server beyond local development.
-- Manager access control is not enforced. Any caller who knows a user id can read the summary. Section 5 must add a manager role check.
+- In-memory data locally (`STORE=memory`): a restart loses everything. Azure uses Cosmos DB.
+- `AUTH=dev` trusts made-up headers. The server refuses to start with it on App Service.
 - Content is duplicated from the front end until section 1 extracts it.

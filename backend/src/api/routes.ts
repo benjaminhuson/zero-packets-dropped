@@ -4,30 +4,47 @@ import type { JourneyService } from './service.js';
 import { HttpError } from './service.js';
 import { CHECKLIST_IDS } from './ids.js';
 import { runCatchUp } from '../scheduler/reminders.js';
-import type { Store } from '../contracts.js';
+import type { Caller, Store } from '../contracts.js';
+import { PeopleService } from './people.js';
+import { DEV_UPN_COOKIE, SESSION_COOKIE, SESSION_HOURS } from '../auth/caller.js';
+import { signSession } from '../auth/crypto.js';
 
 export interface RequestContext {
   method: string;
   path: string;
   params: Record<string, string>;
   body: unknown;
-  userId: string | null;
+  caller: Caller | null;
   adminToken: string | null;
 }
 
-export type Handler = (ctx: RequestContext) => Promise<{ status: number; body: unknown }>;
+export interface HandlerResult {
+  status: number;
+  body: unknown;
+  headers?: Record<string, string | string[]>;
+}
+
+export type Handler = (ctx: RequestContext) => Promise<HandlerResult>;
 
 export interface Deps {
   service: JourneyService;
+  people: PeopleService;
   store: Store;
   adminToken: string | null;
+  sessionSecret: string;
+  secureCookies: boolean;
+  devAuth: boolean; // AUTH=dev only: enables the /api/dev/* stand-ins for Microsoft sign-in
+  clock: { now(): Date };
 }
 
-function need(userId: string | null): string {
-  // DEV ONLY: the caller identifies themselves with the x-user-id header.
-  // TODO (section 5): replace with validated Entra ID tokens before any real use.
-  if (!userId) throw new HttpError(401, 'Missing x-user-id header (dev auth). Entra ID comes later.');
-  return userId;
+// The signed-in new colleague. Managers and buddies get 403 on starter-only routes.
+const need = (caller: Caller | null): string => PeopleService.starterId(caller);
+
+function optStr(body: unknown, key: string): string | null {
+  const v = (body as Record<string, unknown> | null)?.[key];
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v !== 'string') throw new HttpError(400, `"${key}" must be a string`);
+  return v;
 }
 
 function str(body: unknown, key: string): string {
@@ -37,7 +54,13 @@ function str(body: unknown, key: string): string {
 }
 
 export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; names: string[]; handler: Handler }[] {
-  const { service } = deps;
+  const { service, people } = deps;
+  const cookie = (value: string, maxAgeSeconds: number) =>
+    `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${deps.secureCookies ? '; Secure' : ''}`;
+  const startSession = (starterId: string) => {
+    const exp = Math.floor(deps.clock.now().getTime() / 1000) + SESSION_HOURS * 3600;
+    return { 'set-cookie': cookie(signSession({ sub: starterId, exp }, deps.sessionSecret), SESSION_HOURS * 3600) };
+  };
   const r = (method: string, path: string, handler: Handler) => {
     const names: string[] = [];
     const pattern = new RegExp('^' + path.replace(/:(\w+)/g, (_, n: string) => (names.push(n), '([^/]+)')) + '$');
@@ -47,23 +70,71 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
   return [
     r('GET', '/api/health', async () => ({ status: 200, body: { ok: true, service: 'stride-backend' } })),
 
+    // ---- Sign-in. Microsoft sign-in is /.auth/login/aad (App Service), not an API route. ----
+    r('GET', '/api/me', async (c) => ({ status: 200, body: await people.me(c.caller) })),
+    r('POST', '/api/auth/invite', async (c) => {
+      const account = await people.redeemInvite(str(c.body, 'code'), str(c.body, 'password'));
+      return { status: 200, body: { ok: true, email: account.email }, headers: startSession(account.id) };
+    }),
+    r('POST', '/api/auth/login', async (c) => {
+      const account = await people.signIn(str(c.body, 'email'), str(c.body, 'password'));
+      return { status: 200, body: { ok: true }, headers: startSession(account.id) };
+    }),
+    r('POST', '/api/auth/logout', async () => ({
+      status: 200,
+      body: { ok: true },
+      headers: { 'set-cookie': [cookie('', 0), `${DEV_UPN_COOKIE}=; Path=/; Max-Age=0`] },
+    })),
+    // Local development only (AUTH=dev): pretend to be an Entra user, since there is no App Service sign-in.
+    r('POST', '/api/dev/login', async (c) => {
+      if (!deps.devAuth) throw new HttpError(404, 'Not found');
+      const upn = str(c.body, 'upn').trim().toLowerCase();
+      return { status: 200, body: { ok: true }, headers: { 'set-cookie': `${DEV_UPN_COOKIE}=${encodeURIComponent(upn)}; Path=/; HttpOnly; SameSite=Lax` } };
+    }),
+
+    // ---- New colleague: saved app state and the shared thread ----
+    r('GET', '/api/state', async (c) => ({ status: 200, body: await people.loadState(c.caller) })),
+    r('PUT', '/api/state', async (c) => {
+      const b = c.body as { state?: unknown; summary?: unknown } | null;
+      return { status: 200, body: await people.saveState(c.caller, b?.state ?? null, b?.summary) };
+    }),
+    r('GET', '/api/notes', async (c) => ({ status: 200, body: await people.starterNotes(c.caller) })),
+    r('POST', '/api/notes', async (c) => ({ status: 201, body: await people.postNote(c.caller, str(c.body, 'text')) })),
+
+    // ---- Line managers and buddies (Entra) ----
+    r('GET', '/api/starters', async (c) => ({ status: 200, body: await people.listMine(c.caller) })),
+    r('POST', '/api/starters', async (c) => ({
+      status: 201,
+      body: await people.createStarter(c.caller, {
+        firstName: str(c.body, 'firstName'),
+        lastName: optStr(c.body, 'lastName') ?? '',
+        email: str(c.body, 'email'),
+        buddyUpn: optStr(c.body, 'buddyUpn'),
+      }),
+    })),
+    r('GET', '/api/starters/:id', async (c) => ({ status: 200, body: await people.view(c.caller, c.params.id) })),
+    r('POST', '/api/starters/:id/invite', async (c) => ({ status: 200, body: await people.reissueInvite(c.caller, c.params.id) })),
+    r('POST', '/api/starters/:id/buddy', async (c) => ({ status: 200, body: await people.setBuddy(c.caller, c.params.id, optStr(c.body, 'buddyUpn')) })),
+    r('POST', '/api/starters/:id/link', async (c) => ({ status: 200, body: await people.linkEntra(c.caller, c.params.id, str(c.body, 'upn')) })),
+    r('POST', '/api/starters/:id/notes', async (c) => ({ status: 201, body: await people.postNote(c.caller, str(c.body, 'text'), c.params.id) })),
+
     r('POST', '/api/journey', async (c) => ({
       status: 201,
-      body: await service.register(need(c.userId), str(c.body, 'firstName')),
+      body: await service.register(need(c.caller), str(c.body, 'firstName')),
     })),
-    r('GET', '/api/journey', async (c) => ({ status: 200, body: await service.getJourney(need(c.userId)) })),
+    r('GET', '/api/journey', async (c) => ({ status: 200, body: await service.getJourney(need(c.caller)) })),
     r('POST', '/api/journey/open', async (c) => {
       const index = (c.body as { index?: unknown })?.index;
       if (typeof index !== 'number') throw new HttpError(400, '"index" must be a number');
-      return { status: 200, body: await service.openPage(need(c.userId), index) };
+      return { status: 200, body: await service.openPage(need(c.caller), index) };
     }),
     r('POST', '/api/journey/complete-page', async (c) => ({
       status: 200,
-      body: await service.completePage(need(c.userId)),
+      body: await service.completePage(need(c.caller)),
     })),
     r('POST', '/api/journey/tasks/:taskId/toggle', async (c) => ({
       status: 200,
-      body: await service.toggleTask(need(c.userId), c.params.taskId),
+      body: await service.toggleTask(need(c.caller), c.params.taskId),
     })),
     r('GET', '/api/checklist', async () => ({ status: 200, body: CHECKLIST_IDS })),
 
@@ -72,15 +143,15 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
       if (typeof body?.shareWithManager !== 'boolean' || typeof body.wordingVersion !== 'string') {
         throw new HttpError(400, '"shareWithManager" (boolean) and "wordingVersion" (string) are required');
       }
-      return { status: 200, body: await service.setConsent(need(c.userId), body.shareWithManager, body.wordingVersion) };
+      return { status: 200, body: await service.setConsent(need(c.caller), body.shareWithManager, body.wordingVersion) };
     }),
 
-    r('POST', '/api/teams/share', async (c) => ({ status: 201, body: await service.shareProgress(need(c.userId)) })),
+    r('POST', '/api/teams/share', async (c) => ({ status: 201, body: await service.shareProgress(need(c.caller)) })),
     r('POST', '/api/teams/check-in', async (c) => {
       const b = c.body as { date?: unknown; time?: unknown; topic?: unknown };
       return {
         status: 201,
-        body: await service.requestCheckIn(need(c.userId), {
+        body: await service.requestCheckIn(need(c.caller), {
           date: str(b, 'date'),
           time: str(b, 'time'),
           topic: typeof b.topic === 'string' ? b.topic : '',
@@ -89,16 +160,16 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
     }),
     r('POST', '/api/teams/question', async (c) => ({
       status: 201,
-      body: await service.questionToManager(need(c.userId), str(c.body, 'question')),
+      body: await service.questionToManager(need(c.caller), str(c.body, 'question')),
     })),
-    r('POST', '/api/teams/actions', async (c) => ({ status: 201, body: await service.notifyManagerOfActions(need(c.userId)) })),
-    r('GET', '/api/teams/messages', async (c) => ({ status: 200, body: await service.listMessages(need(c.userId)) })),
+    r('POST', '/api/teams/actions', async (c) => ({ status: 201, body: await service.notifyManagerOfActions(need(c.caller)) })),
+    r('GET', '/api/teams/messages', async (c) => ({ status: 200, body: await service.listMessages(need(c.caller)) })),
 
-    r('POST', '/api/chat', async (c) => ({ status: 201, body: await service.ask(need(c.userId), str(c.body, 'question')) })),
-    r('GET', '/api/chat', async (c) => ({ status: 200, body: await service.listChat(need(c.userId)) })),
+    r('POST', '/api/chat', async (c) => ({ status: 201, body: await service.ask(need(c.caller), str(c.body, 'question')) })),
+    r('GET', '/api/chat', async (c) => ({ status: 200, body: await service.listChat(need(c.caller)) })),
 
-    // Manager-facing. Real access control (manager role check) comes with Entra ID.
-    r('GET', '/api/manager/summary', async (c) => ({ status: 200, body: await service.managerSummary(need(c.userId)) })),
+    // The starter's own view of what their manager can see. Managers use GET /api/starters/:id.
+    r('GET', '/api/manager/summary', async (c) => ({ status: 200, body: await service.managerSummary(need(c.caller)) })),
 
     // Scheduled job endpoint. Protected by an admin token; Azure will call it from a timer trigger.
     r('POST', '/api/admin/catch-up', async (c) => {

@@ -59,6 +59,59 @@ export interface ChatTurn {
   escalate?: boolean;
 }
 
+// ---- People and sign-in -----------------------------------------------------
+// A new colleague gets a Stride account before they have Entra ID. The line manager creates it and
+// hands over a one-time invite code. Once the colleague's Entra account exists, the manager links its
+// UPN, and from the first Entra sign-in Stride uses Entra only. Managers and buddies always use Entra.
+
+export interface StarterAccount {
+  id: UserId; // also the journey userId
+  firstName: string;
+  lastName: string;
+  email: string; // sign-in name before Entra (synthetic data only), lowercased
+  passwordHash: string | null; // scrypt, set when the invite is redeemed
+  inviteHash: string | null; // sha256 of the one-time invite code
+  inviteExpiresAt: string | null;
+  managerUpn: string; // lowercased Entra UPN of the line manager
+  buddyUpn: string | null; // lowercased Entra UPN of the buddy
+  upn: string | null; // the colleague's own Entra UPN, once the manager links it
+  entraLinkedAt: string | null; // first Entra sign-in; local password sign-in stops after this
+  createdAt: string;
+}
+
+export type Relationship = 'manager' | 'buddy';
+
+// Who is calling. Resolved from the Entra principal (App Service authentication) or the Stride session.
+export type Caller =
+  | { kind: 'starter'; userId: UserId; name: string; via: 'stride' | 'entra' }
+  | { kind: 'staff'; upn: string; name: string };
+
+// What the starter's app last saved. The front end owns the shape; the summary is what staff may see.
+export interface StarterState {
+  userId: UserId;
+  savedAt: string;
+  state: unknown;
+  summary: StarterSummary;
+}
+
+export interface StarterSummary {
+  stage: number;
+  stageName: string;
+  stagesTotal: number;
+  stepsDone: number;
+  startDate: string | null;
+}
+
+// Basic comms: one thread per starter, shared by the starter, their manager and their buddy.
+export interface Note {
+  id: string;
+  starterId: UserId;
+  from: 'starter' | Relationship;
+  fromName: string;
+  text: string;
+  sentAt: string;
+}
+
 // ---- Gateways (interfaces each section implements) --------------------------
 
 // Section 2: persistence
@@ -72,6 +125,17 @@ export interface Store {
   listCheckIns(userId: UserId): Promise<CheckInRequest[]>; // newest first
   appendChat(turn: ChatTurn): Promise<void>;
   listChat(userId: UserId): Promise<ChatTurn[]>; // oldest first
+
+  getStarter(id: UserId): Promise<StarterAccount | null>;
+  saveStarter(account: StarterAccount): Promise<void>;
+  findStarterByEmail(email: string): Promise<StarterAccount | null>;
+  findStarterByUpn(upn: string): Promise<StarterAccount | null>;
+  findStarterByInvite(inviteHash: string): Promise<StarterAccount | null>;
+  listStartersForStaff(upn: string): Promise<StarterAccount[]>; // as manager or buddy
+  getStarterState(userId: UserId): Promise<StarterState | null>;
+  saveStarterState(state: StarterState): Promise<void>;
+  appendNote(note: Note): Promise<void>;
+  listNotes(starterId: UserId): Promise<Note[]>; // oldest first
 }
 
 // Section 3: Teams and Microsoft Graph

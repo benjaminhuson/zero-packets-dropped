@@ -1312,3 +1312,46 @@ h3, .value-detail h3, .value-card h3 { font-size: 1.5rem; line-height: 1.2; }
 .demo-grid .btn.outline { background: #ffffff; color: #000000; border-color: #ffffff; font-size: 0.95rem; }
 .demo-grid .btn.outline:disabled { opacity: 0.45; }
 .stage-track .node-label { font-size: 0.8rem; }
+
+/* ---- Sign-in, manager/buddy home and the shared thread ------------------------------------ */
+.signin-h { margin: 0 0 0.25rem; font-size: 1.2rem; }
+.signin-error { color: #b00020; background: #fdecee; border-radius: var(--radius); padding: 0.6rem 0.8rem; margin: 0.5rem 0; }
+.linkish { background: none; border: 0; padding: 0; color: var(--green); text-decoration: underline; cursor: pointer; font: inherit; text-align: left; }
+.entry a.btn { text-align: center; text-decoration: none; }
+
+.signed-in-bar { display: flex; gap: 1rem; justify-content: flex-end; align-items: center; flex-wrap: wrap; padding: 0.5rem 16px; background: var(--white); border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+.signed-in-note { margin: 0; padding: 0.6rem 16px; background: var(--green-soft); }
+.thread-popover { position: fixed; right: 16px; top: 3rem; z-index: 50; width: min(420px, calc(100vw - 32px)); max-height: 70vh; overflow: auto; background: var(--white); border-radius: 12px; box-shadow: var(--shadow); padding: 1rem; }
+
+.thread h3 { margin: 1rem 0 0.5rem; }
+.thread ul { list-style: none; margin: 0 0 0.75rem; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.note { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--paper); }
+.note-starter { background: var(--green-soft); }
+.note-who { font-weight: 700; font-size: 0.85rem; }
+.note time { color: var(--muted); font-size: 0.75rem; }
+.thread-form { display: flex; gap: 0.5rem; }
+.thread-form input { flex: 1; min-width: 0; padding: 0.7rem 0.8rem; border: 1px solid var(--line); border-radius: var(--radius); font: inherit; }
+
+.staff { max-width: 1100px; margin: 0 auto; padding: 1.5rem 16px 3rem; }
+.staff-top { background: var(--white); border-radius: 12px; box-shadow: var(--shadow); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.staff-me { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.staff-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 1.5rem; align-items: start; }
+.staff .card { background: var(--white); border-radius: 12px; box-shadow: var(--shadow); padding: 1.25rem; min-width: 0; }
+.staff .card h2 { margin-top: 0; }
+.starter-list { list-style: none; padding: 0; margin: 0 0 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.starter-row { width: 100%; display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-start; padding: 0.8rem; border: 1px solid var(--line); border-radius: 10px; background: var(--white); cursor: pointer; font: inherit; text-align: left; }
+.starter-row.active { border-color: var(--green); background: var(--green-soft); }
+.pill { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; background: var(--paper); font-size: 0.8rem; }
+.pill.on { background: var(--green-soft); color: var(--green-dark); font-weight: 700; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: 1rem 0; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.manager-actions { display: flex; flex-direction: column; gap: 1rem; padding: 1rem 0; border-top: 1px solid var(--line); }
+.manager-actions form { display: flex; flex-direction: column; gap: 0.4rem; }
+.manager-actions input, .staff .register input { padding: 0.7rem 0.8rem; border: 1px solid var(--line); border-radius: var(--radius); font: inherit; }
+.invite-code { margin-bottom: 1.5rem; border: 2px solid var(--green); }
+.invite-code .code { font-family: ui-monospace, Menlo, monospace; font-size: 1.8rem; letter-spacing: 0.15em; margin: 0.25rem 0; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .staff-grid { grid-template-columns: 1fr; }
+}
