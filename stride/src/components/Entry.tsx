@@ -38,14 +38,14 @@ export function Entry({ onRegister }: Props) {
           <Horse size={44} />
           <div>
             <p className="eyebrow">Lloyds · Stride</p>
-            <h1>Welcome aboard</h1>
+            <h1>Welcome to Stride</h1>
           </div>
         </div>
 
         <p className="lead">
           You have accepted an offer for <strong>{NEW_STARTER_ROLE.title}</strong> in{' '}
-          <strong>{NEW_STARTER_ROLE.team}</strong>. Stride will guide you through your first 90 days,
-          one small step at a time.
+          <strong>{NEW_STARTER_ROLE.team}</strong>. Stride guides you through your first 90 days, one week at a time,
+          with your line manager able to see where you are.
         </p>
 
         <div className="entry-grid">

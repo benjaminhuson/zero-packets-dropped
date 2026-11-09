@@ -7,7 +7,8 @@ type Props = {
 };
 
 export function Checklist({ ticked, onToggle, onClose }: Props) {
-  const phases = Array.from(new Set(CHECKLIST.map((c) => c.phase)));
+  // Keep the groups in the order they first appear in the list
+  const groups = Array.from(new Set(CHECKLIST.map((c) => c.group)));
 
   return (
     <div className="drawer-wrap" role="dialog" aria-modal="true" aria-label="Your checklist">
@@ -17,7 +18,7 @@ export function Checklist({ ticked, onToggle, onClose }: Props) {
           <div>
             <p className="eyebrow">Your checklist</p>
             <h2>
-              {ticked.length} of {CHECKLIST.length} done
+              {ticked.length} of {CHECKLIST.length} tasks done
             </h2>
           </div>
           <button className="btn ghost" onClick={onClose}>
@@ -29,11 +30,11 @@ export function Checklist({ ticked, onToggle, onClose }: Props) {
           <span style={{ width: `${(ticked.length / CHECKLIST.length) * 100}%` }} />
         </div>
 
-        {phases.map((phase) => (
-          <section key={phase} className="phase">
-            <h3>{phase}</h3>
+        {groups.map((group) => (
+          <section key={group} className="phase">
+            <h3>{group}</h3>
             <ul>
-              {CHECKLIST.filter((c) => c.phase === phase).map((c) => {
+              {CHECKLIST.filter((c) => c.group === group).map((c) => {
                 const checked = ticked.includes(c.id);
                 return (
                   <li key={c.id}>

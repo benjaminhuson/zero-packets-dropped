@@ -5,7 +5,8 @@ import { Checklist } from './components/Checklist';
 import { useJourney } from './store';
 
 export default function App() {
-  const { state, register, goTo, completeCurrent, toggleTask, reset, doneCount } = useJourney();
+  const { state, daysAway, register, goTo, completePage, toggleTask, shareProgress, requestCheckIn, reset } =
+    useJourney();
   const [checklistOpen, setChecklistOpen] = useState(false);
 
   if (!state.registered) {
@@ -16,10 +17,13 @@ export default function App() {
     <>
       <Journey
         state={state}
-        doneCount={doneCount}
+        daysAway={daysAway}
         onGoTo={goTo}
-        onComplete={completeCurrent}
+        onComplete={completePage}
         onOpenChecklist={() => setChecklistOpen(true)}
+        onToggleTask={toggleTask}
+        onShare={shareProgress}
+        onRequestCheckIn={requestCheckIn}
       />
       {checklistOpen && (
         <Checklist ticked={state.ticked} onToggle={toggleTask} onClose={() => setChecklistOpen(false)} />
