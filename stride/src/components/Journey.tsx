@@ -27,24 +27,26 @@ export function Journey({ state, daysAway, onGoTo, onComplete, onOpenChecklist, 
 
   // The horse sits on the timeline node for the week being viewed. Node index = week number.
   const horseIndex = page.week;
-  const progressPct = ((horseIndex + 0.5) / TIMELINE.length) * 100;
   const weekLabel = page.week === 0 ? 'Offer day' : `Week ${page.week} of ${TOTAL_WEEKS}`;
 
   const weekPageIndexes = PAGES.map((_, i) => i).filter((i) => PAGES[i].week === page.week);
   const pageInWeek = weekPageIndexes.indexOf(state.current) + 1;
+  // The horse moves with every page: its position is the week plus how far through the week's pages we are.
+  const horsePos = page.week + (pageInWeek - 1) / weekPageIndexes.length;
+  const progressPct = ((horsePos + 0.5) / TIMELINE.length) * 100;
 
-  // Walk the horse along the track whenever the week changes.
+  // Gallop the horse along the track whenever the user moves to another page.
   const [walking, setWalking] = useState(false);
   const [facing, setFacing] = useState<1 | -1>(1);
-  const lastIndex = useRef(horseIndex);
+  const lastPos = useRef(horsePos);
   useEffect(() => {
-    if (lastIndex.current === horseIndex) return;
-    setFacing(horseIndex > lastIndex.current ? 1 : -1);
-    lastIndex.current = horseIndex;
+    if (lastPos.current === horsePos) return;
+    setFacing(horsePos > lastPos.current ? 1 : -1);
+    lastPos.current = horsePos;
     setWalking(true);
-    const t = window.setTimeout(() => setWalking(false), 1100);
+    const t = window.setTimeout(() => setWalking(false), 1700);
     return () => window.clearTimeout(t);
-  }, [horseIndex]);
+  }, [horsePos]);
 
   const [bannerOpen, setBannerOpen] = useState(daysAway > 0);
   const groupName = page.week === 0 ? 'Offer day' : `Week ${page.week}`;
@@ -197,9 +199,10 @@ export function Journey({ state, daysAway, onGoTo, onComplete, onOpenChecklist, 
                     style={{ left: `${progressPct}%` }}
                     aria-label={`You are here: ${weekLabel}`}
                   >
+                    <span className="marker-label">You are here</span>
                     <span className="horse-body">
                       <span className="horse-flip" style={{ transform: `scaleX(${facing})` }}>
-                        <Horse size={34} />
+                        <Horse size={46} />
                       </span>
                     </span>
                   </div>

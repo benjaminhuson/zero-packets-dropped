@@ -14,6 +14,8 @@ export type Checklist = {
   label: string;
   // Group heading in the checklist: 'Before you start', 'Offer day', or 'Week N'
   group: string;
+  // Tasks the line manager is involved in (check-ins, objectives, reviews)
+  manager?: boolean;
 };
 
 export type PageKind = 'intro' | 'cancara' | 'lloyds' | 'purpose' | 'values' | 'role' | 'team' | 'week';
@@ -135,12 +137,12 @@ export const CHECKLIST: Checklist[] = [
   { id: 'role', label: 'Review your role and how it links to our purpose', group: 'Offer day' },
   { id: 'orgchart', label: 'Say hello to your buddy', group: 'Offer day' },
   { id: 'week1-coffee', label: 'Book a coffee with each person in your team', group: 'Week 1' },
-  { id: 'week1-goals', label: 'Agree your first objectives with your line manager', group: 'Week 1' },
+  { id: 'week1-goals', label: 'Agree your first objectives with your line manager', group: 'Week 1', manager: true },
   { id: 'week2-training', label: 'Complete the induction e-learning modules', group: 'Week 2' },
   { id: 'week3-shadow', label: 'Shadow a team stand-up', group: 'Week 3' },
-  { id: 'week5-check', label: 'Hold your Day 30 check-in with your line manager', group: 'Week 5' },
-  { id: 'week9-feedback', label: 'Share feedback on your first 60 days', group: 'Week 9' },
-  { id: 'week13-review', label: 'Complete your Day 90 review', group: 'Week 13' },
+  { id: 'week5-check', label: 'Hold your Day 30 check-in with your line manager', group: 'Week 5', manager: true },
+  { id: 'week9-feedback', label: 'Share feedback on your first 60 days', group: 'Week 9', manager: true },
+  { id: 'week13-review', label: 'Complete your Day 90 review', group: 'Week 13', manager: true },
 ];
 
 const OFFER_DAY_PAGES: Page[] = [

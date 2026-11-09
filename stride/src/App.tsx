@@ -3,10 +3,23 @@ import { Entry } from './components/Entry';
 import { Journey } from './components/Journey';
 import { Checklist } from './components/Checklist';
 import { useJourney } from './store';
+import { CancaraChat } from './components/CancaraChat';
 
 export default function App() {
-  const { state, daysAway, register, goTo, completePage, toggleTask, shareProgress, requestCheckIn, reset } =
-    useJourney();
+  const {
+    state,
+    daysAway,
+    register,
+    goTo,
+    completePage,
+    toggleTask,
+    shareProgress,
+    requestCheckIn,
+    askCancara,
+    sendQuestionToManager,
+    notifyManagerOfActions,
+    reset,
+  } = useJourney();
   const [checklistOpen, setChecklistOpen] = useState(false);
 
   if (!state.registered) {
@@ -28,6 +41,12 @@ export default function App() {
       {checklistOpen && (
         <Checklist ticked={state.ticked} onToggle={toggleTask} onClose={() => setChecklistOpen(false)} />
       )}
+      <CancaraChat
+        state={state}
+        onAsk={askCancara}
+        onSendToManager={sendQuestionToManager}
+        onNotifyActions={notifyManagerOfActions}
+      />
       <button className="reset-link" onClick={reset}>
         Reset prototype
       </button>

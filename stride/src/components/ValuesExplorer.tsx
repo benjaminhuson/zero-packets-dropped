@@ -5,16 +5,6 @@ type Props = {
   onAllViewed: () => void;
 };
 
-// Approximate centres of each icon on the 1024×724 values poster (percent of width / height).
-// Each hotspot covers the icon and its title so the whole value is tappable.
-const HOTSPOTS = [
-  { x: 9.5, y: 22 },
-  { x: 27.1, y: 22 },
-  { x: 45.4, y: 22 },
-  { x: 65.2, y: 22 },
-  { x: 84.5, y: 22 },
-];
-
 export function ValuesExplorer({ onAllViewed }: Props) {
   const [index, setIndex] = useState(0);
   const [viewed, setViewed] = useState<number[]>([0]);
@@ -38,42 +28,19 @@ export function ValuesExplorer({ onAllViewed }: Props) {
 
   return (
     <section className="values-explorer" aria-label="Explore the five LBG values">
-      <div className="poster-wrap">
-        <img
-          className="values-poster"
-          src="/lbg-values.png"
-          alt="The five LBG values: People-first, Bold, Inclusive, Sustainable and Trust"
-          draggable={false}
-        />
-        {LBG_VALUES.map((v, i) => (
-          <button
-            key={v.id}
-            className={`hotspot${i === index ? ' selected' : ''}${viewed.includes(i) ? ' seen' : ''}`}
-            style={{
-              left: `${HOTSPOTS[i].x}%`,
-              top: `${HOTSPOTS[i].y}%`,
-              ['--v' as string]: v.colour,
-            }}
-            onClick={() => go(i)}
-            aria-pressed={i === index}
-            aria-label={`${v.name}: ${v.tagline}`}
-          >
-            <span className="hotspot-ring" aria-hidden="true" />
-          </button>
-        ))}
-      </div>
-
-      <div className="value-tabs" role="tablist" aria-label="Values">
+      <div className="icon-strip" role="tablist" aria-label="Choose a value">
         {LBG_VALUES.map((v, i) => (
           <button
             key={v.id}
             role="tab"
             aria-selected={i === index}
-            className={i === index ? 'value-tab active' : 'value-tab'}
+            aria-label={`${v.name}: ${v.tagline}`}
+            className={`icon-btn${i === index ? ' selected' : ''}${viewed.includes(i) ? ' seen' : ''}`}
             style={{ ['--v' as string]: v.colour }}
             onClick={() => go(i)}
           >
-            {v.name}
+            <img src={`/values/icon-${i + 1}.png`} alt="" draggable={false} />
+            <span className="icon-name">{v.name}</span>
           </button>
         ))}
       </div>
