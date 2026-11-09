@@ -1,297 +1,311 @@
 import { useEffect, useState } from 'react';
-import { CHECKLIST, LINE_MANAGER, PAGES } from './data';
-import { answer, managerActionFor, nextManagerActions, type ChatMessage } from './agent';
+import { PAGES } from './data';
+import { answer, type ChatMessage } from './agent';
+import { APPROACHING_DAYS, STAGES } from './stages';
+import { LINE_MANAGER } from './data';
 
-const STORAGE_KEY = 'stride-journey-v2';
-const MANAGER_FIRST_NAME = LINE_MANAGER.name.split(' ')[0];
+const STORAGE_KEY = 'stride-stages-v1';
+const MANAGER = LINE_MANAGER.name.split(' ')[0];
+const DAY_MS = 86400000;
 
-export type CheckInRequest = {
-  id: string;
-  week: number;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM
-  topic: string;
-  status: 'sent';
-};
+export type Device = 'mac' | 'windows';
 
-export type ProgressShare = {
-  id: string;
-  sentAt: string; // ISO timestamp
-  week: number;
-  pageTitle: string;
-};
+export interface Details {
+  preferredName: string;
+  mobile: string;
+  personalEmail: string;
+}
 
-// A Teams message. 'to-manager' goes to the line manager; 'to-starter' comes from Cancara to the new starter.
+export type CheckInRequest = { id: string; date: string; time: string; topic: string; status: 'sent' };
+export type ProgressShare = { id: string; sentAt: string; pageTitle: string };
+
 export type TeamsMessage = {
   id: string;
   sentAt: string;
   direction: 'to-manager' | 'to-starter';
-  kind: 'question' | 'action' | 'progress' | 'check-in' | 'reminder' | 'overdue';
+  kind: 'question' | 'action' | 'progress' | 'check-in' | 'reminder' | 'overdue' | 'stage';
   text: string;
 };
 
-export type JourneyState = {
+// Everything the stage triggers depend on. Set by the starter, the manager, or a system event.
+export interface Flow {
+  accepted: boolean;
+  details: Details | null;
+  vettingComplete: boolean;
+  stepsDone: string[];
+  startDate: string | null; // YYYY-MM-DD, proposed by the starter
+  starterAgreedDate: boolean;
+  managerAgreedDate: boolean;
+  noticeConfirmed: boolean;
+  device: Device | null;
+  photoName: string | null;
+  objectives: string;
+  upn: string | null; // set by the line manager in Entra ID
+  laptopSent: boolean;
+  emergencyContacts: string;
+  // Demo overrides for date-based triggers, so the PoC can be shown without waiting
+  demoApproaching: boolean;
+  demoStarted: boolean;
+}
+
+export interface JourneyState {
   registered: boolean;
   firstName: string;
-  // Index into PAGES of the page being viewed
-  current: number;
-  // Page ids that have been completed
-  completed: string[];
-  // Checklist task ids that have been ticked off
-  ticked: string[];
-  // Teams activity (prototype: stored locally, not sent anywhere)
+  flow: Flow;
+  viewStage: number; // stage shown on screen
+  announced: number[]; // stages the starter has been told are unlocked
   shares: ProgressShare[];
   checkIns: CheckInRequest[];
   teams: TeamsMessage[];
-  // Cancara chat history
   chat: ChatMessage[];
-  // Last time the user opened Stride (ISO timestamp)
   lastVisit: string;
-  // Highest week the manager has been told about actions for
-  actionsSentUpTo: number;
-  // Weeks whose start-of-week reminder has been sent
-  remindedWeeks: number[];
-  // Manager tasks already nudged as overdue
-  nudged: string[];
+}
+
+const emptyFlow: Flow = {
+  accepted: false,
+  details: null,
+  vettingComplete: false,
+  stepsDone: [],
+  startDate: null,
+  starterAgreedDate: false,
+  managerAgreedDate: false,
+  noticeConfirmed: false,
+  device: null,
+  photoName: null,
+  objectives: '',
+  upn: null,
+  laptopSent: false,
+  emergencyContacts: '',
+  demoApproaching: false,
+  demoStarted: false,
 };
 
 const initial: JourneyState = {
   registered: false,
   firstName: '',
-  current: 0,
-  completed: [],
-  ticked: [],
+  flow: emptyFlow,
+  viewStage: 0,
+  announced: [],
   shares: [],
   checkIns: [],
   teams: [],
   chat: [],
   lastVisit: '',
-  actionsSentUpTo: 0,
-  remindedWeeks: [],
-  nudged: [],
 };
 
 function load(): JourneyState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return initial;
-    return { ...initial, ...(JSON.parse(raw) as Partial<JourneyState>) };
+    const saved = JSON.parse(raw) as Partial<JourneyState>;
+    return { ...initial, ...saved, flow: { ...emptyFlow, ...(saved.flow ?? {}) } };
   } catch {
     return initial;
   }
 }
 
-// The furthest page the user can reach: every page up to and including the first incomplete one.
-export function furthestUnlocked(completed: string[]): number {
-  const firstIncomplete = PAGES.findIndex((p) => !completed.includes(p.id));
-  return firstIncomplete === -1 ? PAGES.length - 1 : firstIncomplete;
-}
-
-const DAY_MS = 86400000;
 const now = () => new Date().toISOString();
 const newId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-// 'Week 5' -> 5, 'Offer day' -> 0
-const weekOfGroup = (group: string) => (group.startsWith('Week ') ? parseInt(group.slice(5), 10) : 0);
+function daysUntil(dateStr: string, today: Date): number {
+  const start = new Date(dateStr + 'T00:00:00').getTime();
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return Math.round((start - t) / DAY_MS);
+}
 
-// Messages raised when the user moves into a new week: the starter's weekly reminder,
-// overdue manager tasks from earlier weeks, and the action for the line manager this week.
-function weekEntryMessages(s: JourneyState, week: number): { teams: TeamsMessage[]; remindedWeeks: number[]; nudged: string[]; actionsSentUpTo: number } {
-  const teams: TeamsMessage[] = [];
-  let remindedWeeks = s.remindedWeeks;
-  let nudged = s.nudged;
-  let actionsSentUpTo = s.actionsSentUpTo;
-  const sentAt = now();
-
-  if (week > 0 && !remindedWeeks.includes(week)) {
-    const labels = CHECKLIST.filter((c) => c.group === `Week ${week}`).map((c) => c.label);
-    teams.push({
-      id: newId('teams'),
-      sentAt,
-      direction: 'to-starter',
-      kind: 'reminder',
-      text: `Week ${week} starts now. ${labels.length ? `Tasks: ${labels.join('; ')}.` : 'No tasks this week.'}`,
-    });
-    remindedWeeks = [...remindedWeeks, week];
+// Each trigger, keyed by the stage it unlocks the NEXT stage from.
+export function triggerMet(stageId: number, f: Flow, today: Date = new Date()): boolean {
+  switch (stageId) {
+    case 0: return f.accepted;
+    case 1: return f.vettingComplete;
+    case 2: return !!f.startDate && f.starterAgreedDate && f.managerAgreedDate;
+    case 3: return !!f.photoName;
+    case 4: return f.demoApproaching || (!!f.startDate && daysUntil(f.startDate, today) <= APPROACHING_DAYS);
+    default: return false;
   }
+}
 
-  for (const t of CHECKLIST) {
-    const w = weekOfGroup(t.group);
-    if (t.manager && w < week && !s.ticked.includes(t.id) && !nudged.includes(t.id)) {
-      teams.push({
-        id: newId('teams'),
-        sentAt,
-        direction: 'to-starter',
-        kind: 'overdue',
-        text: `Still open from ${t.group}: "${t.label}". ${MANAGER_FIRST_NAME} is there to help. Ask Cancara to request a time.`,
-      });
-      nudged = [...nudged, t.id];
-    }
+// Highest stage the user may see. Stage n+1 unlocks when the trigger on stage n is met.
+export function unlockedStage(f: Flow, today: Date = new Date()): number {
+  let n = 0;
+  while (n < STAGES.length - 1 && triggerMet(n, f, today)) n++;
+  return n;
+}
+
+// Stage 5 has no trigger after it; it is finished when the start date is reached.
+export function hasStarted(f: Flow, today: Date = new Date()): boolean {
+  return f.demoStarted || (!!f.startDate && daysUntil(f.startDate, today) <= 0);
+}
+
+// Keep the starter informed when a new stage unlocks.
+function announce(s: JourneyState): JourneyState {
+  const unlocked = unlockedStage(s.flow);
+  const fresh = [];
+  for (let n = 0; n <= unlocked; n++) {
+    if (!s.announced.includes(n) && n > 0) fresh.push(n);
   }
-
-  const action = managerActionFor(week);
-  if (action && week > actionsSentUpTo) {
-    teams.push({
-      id: newId('teams'),
-      sentAt,
-      direction: 'to-manager',
-      kind: 'action',
-      text: `Week ${week} action for ${MANAGER_FIRST_NAME}: ${action}`,
-    });
-    actionsSentUpTo = week;
-  }
-
-  return { teams, remindedWeeks, nudged, actionsSentUpTo };
+  if (fresh.length === 0) return s;
+  const msgs: TeamsMessage[] = fresh.map((n) => ({
+    id: newId('teams'),
+    sentAt: now(),
+    direction: 'to-starter',
+    kind: 'stage',
+    text: `Stage ${n} unlocked: ${STAGES[n].name}. ${STAGES[n].summary}`,
+  }));
+  return { ...s, announced: [...s.announced, ...fresh], teams: [...msgs, ...s.teams] };
 }
 
 export function useJourney() {
-  // Read the saved state once so we can say how long it has been since the last visit
   const [boot] = useState(() => {
     const saved = load();
-    const daysAway =
-      saved.registered && saved.lastVisit
-        ? Math.floor((Date.now() - new Date(saved.lastVisit).getTime()) / DAY_MS)
-        : 0;
-    return { state: { ...saved, lastVisit: now() }, daysAway };
+    return { state: { ...saved, lastVisit: now() } };
   });
   const [state, setState] = useState<JourneyState>(boot.state);
-  const daysAway = boot.daysAway;
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
+  // Every change goes through here so unlock announcements are always sent
+  const update = (fn: (s: JourneyState) => JourneyState) => setState((s) => announce(fn(s)));
+  const msg = (direction: TeamsMessage['direction'], kind: TeamsMessage['kind'], text: string): TeamsMessage => ({
+    id: newId('teams'),
+    sentAt: now(),
+    direction,
+    kind,
+    text,
+  });
+  const patchFlow = (s: JourneyState, patch: Partial<Flow>): JourneyState => ({ ...s, flow: { ...s.flow, ...patch } });
+
   const register = (firstName: string) =>
-    setState((s) => ({ ...s, registered: true, firstName: firstName.trim() || 'there' }));
+    update((s) => {
+      const withName = { ...s, registered: true, firstName: firstName.trim() || 'there' };
+      return patchFlow(withName, { accepted: true });
+    });
 
-  const goTo = (index: number) =>
-    setState((s) => ({ ...s, current: Math.max(0, Math.min(index, furthestUnlocked(s.completed))) }));
+  const openStage = (stage: number) =>
+    setState((s) => ({ ...s, viewStage: Math.max(0, Math.min(stage, unlockedStage(s.flow))) }));
 
-  const completePage = () =>
-    setState((s) => {
-      const id = PAGES[s.current].id;
-      const completed = s.completed.includes(id) ? s.completed : [...s.completed, id];
-      const nextIndex = Math.min(s.current + 1, PAGES.length - 1);
-      const nextWeek = PAGES[nextIndex].week;
-      const entering = nextWeek !== PAGES[s.current].week;
-      if (!entering) return { ...s, completed, current: nextIndex };
-      const entry = weekEntryMessages({ ...s, completed }, nextWeek);
+  const toggleStep = (stepId: string) =>
+    update((s) => {
+      const done = s.flow.stepsDone.includes(stepId);
+      return patchFlow(s, { stepsDone: done ? s.flow.stepsDone.filter((x) => x !== stepId) : [...s.flow.stepsDone, stepId] });
+    });
+
+  const saveDetails = (d: Details) => update((s) => patchFlow(s, { details: d }));
+
+  const setDevice = (device: Device) => update((s) => patchFlow(s, { device }));
+
+  const uploadPhoto = (name: string) => update((s) => patchFlow(s, { photoName: name }));
+
+  const confirmNotice = () => update((s) => patchFlow(s, { noticeConfirmed: true }));
+
+  const saveObjectives = (text: string) => update((s) => patchFlow(s, { objectives: text }));
+
+  const saveContacts = (text: string) => update((s) => patchFlow(s, { emergencyContacts: text }));
+
+  // The starter proposes a start date. Both parties must agree before stage 3 unlocks.
+  const agreeStartDate = (date: string) =>
+    update((s) => {
+      const next = patchFlow(s, { startDate: date, starterAgreedDate: true, managerAgreedDate: false });
       return {
-        ...s,
-        completed,
-        current: nextIndex,
-        teams: [...entry.teams, ...s.teams],
-        remindedWeeks: entry.remindedWeeks,
-        nudged: entry.nudged,
-        actionsSentUpTo: entry.actionsSentUpTo,
+        ...next,
+        teams: [msg('to-manager', 'action', `Please confirm the start date ${date} for ${s.firstName || 'the new starter'}.`), ...next.teams],
       };
     });
 
-  const toggleTask = (taskId: string) =>
-    setState((s) => ({
-      ...s,
-      ticked: s.ticked.includes(taskId) ? s.ticked.filter((t) => t !== taskId) : [...s.ticked, taskId],
-    }));
+  // Demo event: the line manager confirms the agreed start date
+  const managerConfirmDate = () =>
+    update((s) => {
+      const next = patchFlow(s, { managerAgreedDate: true });
+      return { ...next, teams: [msg('to-starter', 'stage', `${MANAGER} confirmed your start date.`), ...next.teams] };
+    });
+
+  // Demo event: Workday completes vetting. This triggers stage 2.
+  const completeVetting = () =>
+    update((s) => {
+      const next = patchFlow(s, { vettingComplete: true });
+      return { ...next, teams: [msg('to-starter', 'stage', 'Vetting is complete. You can now move on to stage 2.'), ...next.teams] };
+    });
+
+  // Demo event: the line manager adds the new starter's UPN in Entra ID
+  const managerSetUpn = (upn: string) =>
+    update((s) => {
+      const next = patchFlow(s, { upn: upn.trim() });
+      return { ...next, teams: [msg('to-starter', 'stage', `${MANAGER} added your account in Microsoft Entra ID.`), ...next.teams] };
+    });
+
+  // Demo event: IT dispatches the laptop
+  const dispatchLaptop = () =>
+    update((s) => patchFlow(s, { laptopSent: true }));
+
+  // Demo events for the date-based triggers
+  const simulateApproaching = () => update((s) => patchFlow(s, { demoApproaching: true }));
+  const simulateStarted = () => update((s) => patchFlow(s, { demoStarted: true }));
 
   const shareProgress = () =>
-    setState((s) => {
-      const page = PAGES[s.current];
-      const share: ProgressShare = { id: newId('share'), sentAt: now(), week: page.week, pageTitle: page.title };
-      const msg: TeamsMessage = {
-        id: newId('teams'),
-        sentAt: now(),
-        direction: 'to-manager',
-        kind: 'progress',
-        text: `${s.firstName || 'The new starter'} is on ${page.week === 0 ? 'Offer day' : `Week ${page.week}`}: ${page.title}.`,
-      };
-      return { ...s, shares: [share, ...s.shares], teams: [msg, ...s.teams] };
+    update((s) => {
+      const share: ProgressShare = { id: newId('share'), sentAt: now(), pageTitle: PAGES[0].title };
+      const stageName = STAGES[s.viewStage].name;
+      return { ...s, shares: [share, ...s.shares], teams: [msg('to-manager', 'progress', `${s.firstName || 'The new starter'} is on stage ${s.viewStage}: ${stageName}.`), ...s.teams] };
     });
 
   const requestCheckIn = (req: { date: string; time: string; topic: string }) =>
-    setState((s) => {
-      const checkIn: CheckInRequest = { id: newId('checkin'), week: PAGES[s.current].week, status: 'sent', ...req };
-      const msg: TeamsMessage = {
-        id: newId('teams'),
-        sentAt: now(),
-        direction: 'to-manager',
-        kind: 'check-in',
-        text: `Check-in request for ${req.date} at ${req.time}: ${req.topic}`,
+    update((s) => {
+      const checkIn: CheckInRequest = { id: newId('checkin'), status: 'sent', ...req, topic: req.topic.trim() || 'Check-in' };
+      return {
+        ...s,
+        checkIns: [checkIn, ...s.checkIns],
+        teams: [msg('to-manager', 'check-in', `Check-in request for ${req.date} at ${req.time}: ${checkIn.topic}`), ...s.teams],
       };
-      return { ...s, checkIns: [checkIn, ...s.checkIns], teams: [msg, ...s.teams] };
     });
 
-  // Ask Cancara a question: the user's message and Cancara's reply are added to the chat.
-  // If Cancara cannot answer from Stride content, it offers to pass the question to the line manager.
   const askCancara = (question: string) =>
-    setState((s) => {
-      const page = PAGES[s.current];
-      const reply = answer(question, page.week, page.title);
+    update((s) => {
+      const stage = STAGES[s.viewStage];
+      const reply = answer(question, 0, stage.name);
       const you: ChatMessage = { id: newId('msg'), from: 'you', text: question, sentAt: now() };
-      const cancara: ChatMessage = {
-        id: newId('msg'),
-        from: 'cancara',
-        text: reply.text,
-        sentAt: now(),
-        escalate: reply.escalate,
-      };
+      const cancara: ChatMessage = { id: newId('msg'), from: 'cancara', text: reply.text, sentAt: now(), escalate: reply.escalate };
       return { ...s, chat: [...s.chat, you, cancara] };
     });
 
-  // Pass a question on to the line manager in Teams
   const sendQuestionToManager = (question: string) =>
-    setState((s) => {
-      const msg: TeamsMessage = { id: newId('teams'), sentAt: now(), direction: 'to-manager', kind: 'question', text: question };
-      const reply: ChatMessage = {
-        id: newId('msg'),
-        from: 'cancara',
-        text: `Sent to ${MANAGER_FIRST_NAME} on Teams. I will let you know when ${MANAGER_FIRST_NAME === 'Priya' ? 'she' : 'they'} reply.`,
-        sentAt: now(),
-      };
-      // The escalation has now been handled, so stop offering it
+    update((s) => {
+      const reply: ChatMessage = { id: newId('msg'), from: 'cancara', text: `Sent to ${MANAGER} on Teams. I will let you know when they reply.`, sentAt: now() };
       const chat = s.chat.map((m) => (m.escalate ? { ...m, escalate: false } : m));
-      return { ...s, teams: [msg, ...s.teams], chat: [...chat, reply] };
+      return { ...s, chat: [...chat, reply], teams: [msg('to-manager', 'question', question), ...s.teams] };
     });
 
-  // Cancara tells the line manager what they need to do for every week reached so far
+  // Tell the manager which of their steps are waiting on them
   const notifyManagerOfActions = () =>
-    setState((s) => {
-      const currentWeek = PAGES[s.current].week;
-      const actions = nextManagerActions(s.actionsSentUpTo + 1, Math.max(currentWeek, 0));
-      if (actions.length === 0) {
-        const msg: TeamsMessage = {
-          id: newId('teams'),
-          sentAt: now(),
-          direction: 'to-manager',
-          kind: 'action',
-          text: 'Nothing new needs doing from you yet. Cancara will let you know when a check-in is due.',
-        };
-        return { ...s, teams: [msg, ...s.teams] };
-      }
-      const msg: TeamsMessage = {
-        id: newId('teams'),
-        sentAt: now(),
-        direction: 'to-manager',
-        kind: 'action',
-        text: `Actions for you: ${actions.join(' · ')}`,
-      };
-      const chatReply: ChatMessage = {
-        id: newId('msg'),
-        from: 'cancara',
-        text: `I have let ${MANAGER_FIRST_NAME} know about ${actions.length} action${actions.length === 1 ? '' : 's'} on Teams.`,
-        sentAt: now(),
-      };
-      return { ...s, teams: [msg, ...s.teams], chat: [...s.chat, chatReply], actionsSentUpTo: currentWeek };
+    update((s) => {
+      const waiting: string[] = [];
+      if (s.flow.startDate && s.flow.starterAgreedDate && !s.flow.managerAgreedDate) waiting.push('Confirm the agreed start date');
+      if (unlockedStage(s.flow) >= 4 && !s.flow.upn) waiting.push('Add the new starter’s UPN in Microsoft Entra ID');
+      const text = waiting.length ? `Actions for you: ${waiting.join(' · ')}` : 'Nothing is waiting on you right now.';
+      return { ...s, teams: [msg('to-manager', 'action', text), ...s.teams] };
     });
 
   const reset = () => setState({ ...initial, lastVisit: now() });
 
   return {
     state,
-    daysAway,
     register,
-    goTo,
-    completePage,
-    toggleTask,
+    openStage,
+    toggleStep,
+    saveDetails,
+    setDevice,
+    uploadPhoto,
+    confirmNotice,
+    saveObjectives,
+    saveContacts,
+    agreeStartDate,
+    managerConfirmDate,
+    completeVetting,
+    managerSetUpn,
+    dispatchLaptop,
+    simulateApproaching,
+    simulateStarted,
     shareProgress,
     requestCheckIn,
     askCancara,

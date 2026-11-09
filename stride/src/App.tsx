@@ -1,55 +1,46 @@
-import { useState } from 'react';
 import { Entry } from './components/Entry';
-import { Journey } from './components/Journey';
-import { Checklist } from './components/Checklist';
-import { useJourney } from './store';
+import { StageJourney } from './components/StageJourney';
 import { CancaraChat } from './components/CancaraChat';
+import { useJourney } from './store';
 
 export default function App() {
-  const {
-    state,
-    daysAway,
-    register,
-    goTo,
-    completePage,
-    toggleTask,
-    shareProgress,
-    requestCheckIn,
-    askCancara,
-    sendQuestionToManager,
-    notifyManagerOfActions,
-    reset,
-  } = useJourney();
-  const [checklistOpen, setChecklistOpen] = useState(false);
+  const journey = useJourney();
+  const { state } = journey;
 
   if (!state.registered) {
-    return <Entry onRegister={register} />;
+    return <Entry onRegister={journey.register} />;
   }
 
   return (
     <>
-      <Journey
+      <StageJourney
         state={state}
-        daysAway={daysAway}
-        onGoTo={goTo}
-        onComplete={completePage}
-        onOpenChecklist={() => setChecklistOpen(true)}
-        onToggleTask={toggleTask}
-        onShare={shareProgress}
-        onRequestCheckIn={requestCheckIn}
+        openStage={journey.openStage}
+        toggleStep={journey.toggleStep}
+        saveDetails={journey.saveDetails}
+        setDevice={journey.setDevice}
+        uploadPhoto={journey.uploadPhoto}
+        confirmNotice={journey.confirmNotice}
+        saveObjectives={journey.saveObjectives}
+        saveContacts={journey.saveContacts}
+        agreeStartDate={journey.agreeStartDate}
+        managerConfirmDate={journey.managerConfirmDate}
+        completeVetting={journey.completeVetting}
+        managerSetUpn={journey.managerSetUpn}
+        dispatchLaptop={journey.dispatchLaptop}
+        simulateApproaching={journey.simulateApproaching}
+        simulateStarted={journey.simulateStarted}
+        shareProgress={journey.shareProgress}
+        requestCheckIn={journey.requestCheckIn}
+        notifyManagerOfActions={journey.notifyManagerOfActions}
       />
-      {checklistOpen && (
-        <Checklist ticked={state.ticked} onToggle={toggleTask} onClose={() => setChecklistOpen(false)} />
-      )}
       <CancaraChat
         state={state}
-        onAsk={askCancara}
-        onSendToManager={sendQuestionToManager}
-        onNotifyActions={notifyManagerOfActions}
+        onAsk={journey.askCancara}
+        onSendToManager={journey.sendQuestionToManager}
+        onNotifyActions={journey.notifyManagerOfActions}
       />
-      <button className="reset-link" onClick={reset}>
-        Reset prototype
-      </button>
+      <button className="reset-link" onClick={journey.reset}>Reset prototype</button>
     </>
   );
 }

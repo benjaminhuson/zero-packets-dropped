@@ -1241,3 +1241,74 @@ h3, .value-detail h3, .value-card h3 { font-size: 1.5rem; line-height: 1.2; }
 .manager-preview { margin-top: 0.75rem; background: #e6ffe4; padding: 0.8rem 0.9rem; border-radius: 12px; }
 .kind-reminder { background: #b5f5b0; color: #024731; }
 .kind-overdue { background: #ffe3e0; color: #8a1f14; }
+
+/* ---------- Stage journey (Engineering job family PoC) ---------- */
+.stage-card .kicker { color: #024731; }
+.steps { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: 0.75rem; }
+.step {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  border: 1px solid #b5f5b0;
+}
+.step.done { background: #ffffff; border-color: #11b67a; }
+.step-head { display: flex; gap: 0.75rem; align-items: flex-start; }
+.step-mark {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #024731;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 0.85rem;
+}
+.step.done .step-mark { background: #024731; }
+.step-title { font-weight: 700; font-size: 1.05rem; line-height: 1.25; }
+.step-owner { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: #1d3b2e; }
+.step-body { margin: 0.5rem 0 0 calc(26px + 0.75rem); font-size: 1rem; line-height: 1.35; }
+.step-check, .step-form, .choice, .status { margin: 0.75rem 0 0 calc(26px + 0.75rem); }
+.step-check { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-weight: 700; cursor: pointer; }
+.step-check input { width: 18px; height: 18px; accent-color: #024731; }
+.step-link { color: #024731; font-weight: 700; margin-left: 0.25rem; }
+.step-form { display: grid; gap: 0.5rem; }
+.step-form input, .step-text {
+  font: inherit;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #9be89a;
+  background: #f6fff5;
+  border-radius: 8px;
+  width: 100%;
+}
+.step-text { display: block; margin-left: calc(26px + 0.75rem); width: calc(100% - 26px - 0.75rem); }
+.inline-label { display: grid; gap: 0.3rem; font-weight: 700; }
+.status { font-weight: 700; color: #024731; }
+.choice { display: flex; gap: 0.5rem; }
+.choice-btn {
+  font: inherit;
+  font-weight: 700;
+  padding: 0.6rem 1.1rem;
+  border: 2px solid #000000;
+  background: #ffffff;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.choice-btn.on { background: #024731; color: #ffffff; border-color: #024731; }
+.trigger-banner {
+  margin-top: 1.25rem;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  border-left: 5px solid #024731;
+}
+.trigger-banner p:last-child { margin-top: 0.25rem; }
+.role-card-simple { background: #ffffff; border-radius: 12px; padding: 0.9rem 1.1rem; margin-top: 1rem; }
+.demo-card { background: #013a26; color: #ffffff; border-radius: 16px; padding: 1.1rem 1.25rem; }
+.demo-card .eyebrow { color: #6cf479; }
+.demo-card .fine { color: #c7ffc6; }
+.demo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.5rem; margin-top: 0.6rem; }
+.demo-grid .btn.outline { background: #ffffff; color: #000000; border-color: #ffffff; font-size: 0.95rem; }
+.demo-grid .btn.outline:disabled { opacity: 0.45; }
+.stage-track .node-label { font-size: 0.8rem; }

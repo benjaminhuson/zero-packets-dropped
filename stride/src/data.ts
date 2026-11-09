@@ -34,8 +34,8 @@ export type Page = {
 };
 
 export const NEW_STARTER_ROLE = {
-  title: 'Graduate Data Analyst',
-  team: 'Customer Insight',
+  title: 'Software Engineer',
+  team: 'Engineering',
   location: 'Edinburgh (hybrid)',
   startDate: '2027-01-11',
 };
