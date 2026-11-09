@@ -17,7 +17,8 @@ export type StepKind =
   | 'objectives' // free-text objectives
   | 'contacts' // emergency contacts
   | 'upn' // manager enters the new starter's UPN (Entra ID)
-  | 'laptop'; // laptop dispatched (IT)
+  | 'laptop' // laptop dispatched (IT)
+  | 'article'; // read-through text, optionally expanded by default
 
 export interface Step {
   id: string;
@@ -26,6 +27,11 @@ export interface Step {
   kind: StepKind;
   owner: Owner;
   href?: string;
+  // Longer text, shown when the step is opened
+  paragraphs?: string[];
+  openByDefault?: boolean;
+  // Step id that must be done before this one opens
+  after?: string;
 }
 
 export interface StageDef {
@@ -38,6 +44,19 @@ export interface StageDef {
 }
 
 export const JOB_FAMILY = 'Engineering';
+
+// PLACEHOLDER COPY: confirm wording and facts with the Lloyds brand and history teams before launch.
+const CANCARA_STORY = [
+  'Cancara is your AI buddy. It is here whenever you have a question, and it will point you to the next step in your journey.',
+  'The black horse has been part of Lloyds for a very long time. It stands for strength, reliability and getting you where you need to go, which is what this journey is about.',
+  'Ask Cancara anything from the button at the bottom right of the screen. If it cannot answer, it will pass your question to your line manager on Teams.',
+];
+
+const LLOYDS_HISTORY = [
+  'Our story began in 1765 in Birmingham, and Lloyds has grown over more than 250 years into one of the UK’s largest banks.',
+  'Along the way we have supported British families, savers, businesses and communities through many changes, and we still do that today.',
+  'Our purpose is to help Britain prosper. That is the thread that runs from our past to the work you will do here.',
+];
 
 export const STAGES: StageDef[] = [
   {
@@ -59,8 +78,9 @@ export const STAGES: StageDef[] = [
     trigger: 'Vetting is complete (Workday)',
     steps: [
       { id: 's1-details', title: 'Confirm your details', kind: 'details', owner: 'you', body: 'Linked from Workday. Check these are right.' },
-      { id: 's1-history', title: 'Our history', kind: 'check', owner: 'you', body: 'Our history, and how we got to where we are today.' },
-      { id: 's1-values', title: 'Our values', kind: 'values', owner: 'you', body: 'Explore the five values, one by one.' },
+      { id: 's1-cancara', title: 'Meet Cancara, your AI buddy', kind: 'article', owner: 'you', openByDefault: true, after: 's1-details', body: 'Cancara guides you through every stage.', paragraphs: CANCARA_STORY },
+      { id: 's1-history', title: 'The history of Lloyds Bank', kind: 'article', owner: 'you', after: 's1-cancara', body: 'Where we came from, and how we got here.', paragraphs: LLOYDS_HISTORY },
+      { id: 's1-values', title: 'Our values', kind: 'values', owner: 'you', body: 'Explore the five values, one by one.', after: 's1-history' },
       { id: 's1-strategy', title: 'Our strategy', kind: 'check', owner: 'you', body: 'Where Lloyds is heading and why.' },
       { id: 's1-benefits', title: 'Your benefits', kind: 'check', owner: 'you', body: 'Pay, pension and wellbeing support.' },
       { id: 's1-permissions', title: 'Your permissions', kind: 'check', owner: 'you', body: 'What access you will have and how we keep it secure.' },

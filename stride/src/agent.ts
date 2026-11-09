@@ -10,6 +10,8 @@ export type ChatMessage = {
   sentAt: string;
   // Set on Cancara replies that could not be answered from Stride content
   escalate?: boolean;
+  // A button Cancara offers, e.g. booking a check-in at the end of a stage
+  action?: { kind: 'checkin'; stage: number; slots?: { date: string; time: string; label: string }[] };
 };
 
 // Things Priya needs to do in each week, sent to her in Teams

@@ -1312,3 +1312,374 @@ h3, .value-detail h3, .value-card h3 { font-size: 1.5rem; line-height: 1.2; }
 .demo-grid .btn.outline { background: #ffffff; color: #000000; border-color: #ffffff; font-size: 0.95rem; }
 .demo-grid .btn.outline:disabled { opacity: 0.45; }
 .stage-track .node-label { font-size: 0.8rem; }
+
+/* Ghost buttons inside the mint Teams panel need dark text */
+.teams-panel .btn.ghost, .side-card .btn.ghost { color: #000000; }
+
+/* ---------- First-visit welcome ---------- */
+.welcome-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  background: radial-gradient(900px 500px at 20% 0%, #0a6b4d 0%, transparent 60%), #024731;
+  animation: fadeIn 0.6s ease-out;
+}
+.welcome-card {
+  background: #c7ffc6;
+  color: #000000;
+  border-radius: 20px;
+  padding: 2.5rem 2.25rem;
+  max-width: 560px;
+  width: 100%;
+  text-align: left;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.3);
+  animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.welcome-horse { display: grid; place-items: center; margin-bottom: 0.5rem; }
+.welcome-eyebrow { color: #024731; }
+.welcome-card h1 { font-size: 2.25rem; line-height: 1.1; margin: 0.4rem 0 1rem; }
+.welcome-lead { font-size: 1.125rem; line-height: 1.5; }
+.welcome-points { list-style: none; padding: 0; margin: 1.25rem 0 1.5rem; display: grid; gap: 0.5rem; }
+.welcome-points li {
+  background: #e6ffe4;
+  border-left: 4px solid #024731;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  font-weight: 700;
+}
+.welcome-cta { width: 100%; padding: 1rem; font-size: 1.125rem; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.theme-toggle {
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  background: transparent;
+  color: #ffffff;
+  border: 2px solid #6cf479;
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+.theme-toggle:hover { background: #6cf479; color: #000000; }
+
+/* =====================================================================
+   Darker mode (slightly darker than the default green, same brand colours).
+   Enabled with <html data-theme="dark">. Light mode is unchanged.
+   ===================================================================== */
+[data-theme="dark"] body { background: #012a1d; color: #e9f7ef; }
+[data-theme="dark"] html, [data-theme="dark"] { background: #012a1d; }
+[data-theme="dark"] .app-header { background: #00180f; border-bottom-color: rgba(108, 244, 121, 0.25); }
+[data-theme="dark"] .brand-sub, [data-theme="dark"] .hello { color: #b9e8cc; }
+[data-theme="dark"] .checkpoint, [data-theme="dark"] .teams-panel, [data-theme="dark"] .side-card,
+[data-theme="dark"] .timeline, [data-theme="dark"] .value-detail, [data-theme="dark"] .welcome-back,
+[data-theme="dark"] .drawer, [data-theme="dark"] .chat-sheet, [data-theme="dark"] .entry-card,
+[data-theme="dark"] .welcome-card, [data-theme="dark"] .role-card-simple, [data-theme="dark"] .trigger-banner,
+[data-theme="dark"] .step, [data-theme="dark"] .value-card {
+  background: #0b3626;
+  color: #e9f7ef;
+  border-color: rgba(108, 244, 121, 0.18);
+}
+[data-theme="dark"] .checkpoint h1, [data-theme="dark"] .value-detail h3, [data-theme="dark"] .person-name,
+[data-theme="dark"] .chat-name, [data-theme="dark"] .checkpoint h1, [data-theme="dark"] .step-title,
+[data-theme="dark"] .body, [data-theme="dark"] .value-behaviour, [data-theme="dark"] .value-tagline,
+[data-theme="dark"] .highlights li, [data-theme="dark"] .role-card dd, [data-theme="dark"] .role-card dt,
+[data-theme="dark"] .lead, [data-theme="dark"] .lead strong, [data-theme="dark"] .entry-brand h1,
+[data-theme="dark"] .welcome-card h1, [data-theme="dark"] .welcome-lead, [data-theme="dark"] .step-body {
+  color: #e9f7ef;
+}
+[data-theme="dark"] .fine, [data-theme="dark"] .muted, [data-theme="dark"] .person-role, [data-theme="dark"] .week-sub,
+[data-theme="dark"] .teams-sub, [data-theme="dark"] .value-count, [data-theme="dark"] .step-owner,
+[data-theme="dark"] .invite, [data-theme="dark"] .node-label, [data-theme="dark"] .node {
+  color: #b9e8cc;
+}
+[data-theme="dark"] .kicker, [data-theme="dark"] .eyebrow, [data-theme="dark"] .phase h3,
+[data-theme="dark"] .teams-panel .eyebrow, [data-theme="dark"] .side-card .eyebrow, [data-theme="dark"] .stage-card .kicker {
+  color: #6cf479;
+}
+[data-theme="dark"] .highlights li, [data-theme="dark"] .role-card div, [data-theme="dark"] .hero-horse,
+[data-theme="dark"] .value-opposite-box, [data-theme="dark"] .task, [data-theme="dark"] .manager-card,
+[data-theme="dark"] .checkin-status, [data-theme="dark"] .escalate, [data-theme="dark"] .chat-hello,
+[data-theme="dark"] .person-card, [data-theme="dark"] .bubble.cancara, [data-theme="dark"] .manager-preview,
+[data-theme="dark"] .welcome-points li, [data-theme="dark"] .value-tab, [data-theme="dark"] .chip,
+[data-theme="dark"] .chat-input input, [data-theme="dark"] .step-form input, [data-theme="dark"] .step-text,
+[data-theme="dark"] .register input, [data-theme="dark"] .checkin-form select, [data-theme="dark"] .checkin-form textarea {
+  background: #134a34;
+  color: #e9f7ef;
+  border-color: rgba(108, 244, 121, 0.2);
+}
+[data-theme="dark"] .task.done, [data-theme="dark"] .highlights li { background: #17573d; }
+[data-theme="dark"] .track { background: #1e5b43; }
+[data-theme="dark"] .teams-panel .btn.ghost, [data-theme="dark"] .side-card .btn.ghost,
+[data-theme="dark"] .checkpoint .btn.ghost, [data-theme="dark"] .actions .btn.ghost,
+[data-theme="dark"] .value-nav .btn.ghost { color: #e9f7ef; }
+[data-theme="dark"] .teams-panel .btn.outline, [data-theme="dark"] .side-card .btn.outline,
+[data-theme="dark"] .chat-foot .btn.outline, [data-theme="dark"] .btn.outline {
+  background: transparent; color: #e9f7ef; border-color: #e9f7ef;
+}
+[data-theme="dark"] .btn.outline:hover { background: #134a34; }
+[data-theme="dark"] .demo-card { background: #00180f; }
+[data-theme="dark"] .steps .step-check span { color: #e9f7ef; }
+[data-theme="dark"] .icon-strip, [data-theme="dark"] .values-explorer .icon-strip { background: #00180f; }
+[data-theme="dark"] .actions { background: #00180f; box-shadow: none; }
+[data-theme="dark"] .reset-link { color: #b9e8cc; }
+[data-theme="dark"] .welcome-screen { background: radial-gradient(900px 500px at 20% 0%, #0d5a40 0%, transparent 60%), #00180f; }
+[data-theme="dark"] .welcome-card { background: #0b3626; color: #e9f7ef; }
+[data-theme="dark"] .welcome-points li { background: #134a34; color: #e9f7ef; }
+[data-theme="dark"] .entry { background: #00180f; }
+[data-theme="dark"] .entry-card { background: #0b3626; }
+[data-theme="dark"] .register label, [data-theme="dark"] .lead { color: #e9f7ef; }
+[data-theme="dark"] .qr { background: #e9f7ef; }
+[data-theme="dark"] .week-bar { background: #0d5a40; color: #ffffff; }
+[data-theme="dark"] .week-bar .eyebrow { color: #6cf479; }
+[data-theme="dark"] .week-bar .week-sub { color: #d7efe3; }
+
+/* ---------- Polish: motion and feel ---------- */
+.btn { transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.12s ease, box-shadow 0.2s ease; }
+.btn:active:not(:disabled) { transform: translateY(1px) scale(0.99); }
+.btn.primary:not(:disabled):hover { box-shadow: 0 6px 16px rgba(11, 226, 72, 0.25); }
+.steps .step {
+  animation: stepIn 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.steps .step:nth-child(2) { animation-delay: 0.05s; }
+.steps .step:nth-child(3) { animation-delay: 0.1s; }
+.steps .step:nth-child(4) { animation-delay: 0.15s; }
+.steps .step:nth-child(5) { animation-delay: 0.2s; }
+.steps .step:nth-child(6) { animation-delay: 0.25s; }
+.steps .step:nth-child(7) { animation-delay: 0.3s; }
+.steps .step:nth-child(8) { animation-delay: 0.35s; }
+.steps .step:nth-child(9) { animation-delay: 0.4s; }
+.steps .step:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 40, 30, 0.12); }
+.step.done .step-mark { animation: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+.checkpoint, .teams-panel, .side-card, .timeline, .value-detail { transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease; }
+.node .dot { transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease; }
+.node.current .dot { transform: scale(1.15); }
+.trigger-banner { animation: fadeUp 0.5s ease-out both; }
+.cancara-fab { transition: transform 0.2s ease, background 0.2s ease; }
+.cancara-fab:hover { transform: translateY(-2px); }
+.entry-card, .welcome-card { backdrop-filter: blur(0px); }
+input:focus, select:focus, textarea:focus { outline: 3px solid #6cf479; outline-offset: 1px; }
+body, .checkpoint, .timeline { -webkit-font-smoothing: antialiased; }
+
+@keyframes stepIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { transform: scale(0.6); } 100% { transform: scale(1); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+.cancara-fab .horse-img { border-radius: 50%; }
+
+/* Article steps and locked steps */
+.article { margin: 0.75rem 0 0 calc(26px + 0.75rem); }
+.article summary { cursor: pointer; font-weight: 700; color: #024731; padding: 0.4rem 0; }
+.article-text { margin: 0.5rem 0; line-height: 1.5; font-size: 1rem; }
+.article .step-check { margin: 0.75rem 0 0; }
+.step.locked { opacity: 0.55; background: #eef8ec; border-style: dashed; }
+.step.locked .step-mark { border-style: dashed; }
+
+/* Congratulations banner */
+.celebrate {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: #6cf479;
+  color: #000000;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.celebrate .eyebrow { color: #024731; }
+.celebrate-title { font-size: 1.25rem; font-weight: 700; line-height: 1.25; margin: 0.2rem 0; }
+[data-theme="dark"] .celebrate { background: #11b67a; color: #00180f; }
+
+/* ---------- Slides: one step at a time ---------- */
+.slide-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.slide-count { font-weight: 700; color: #024731; }
+.slide-dots { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.9rem 0 0.25rem; }
+.slide-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #024731;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.slide-dot.done { background: #11b67a; border-color: #11b67a; }
+.slide-dot.on { background: #024731; transform: scale(1.3); }
+.slide-dot:focus-visible { outline: 3px solid #6cf479; outline-offset: 2px; }
+.steps.slide { margin-top: 0.75rem; animation: slideIn 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.steps.slide .step { border-width: 2px; padding: 1.25rem 1.25rem 1.1rem; }
+.slide-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+.slide-hint { flex: 1; text-align: center; }
+.slide-nav .btn:disabled { opacity: 0.35; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@media (max-width: 720px) {
+  .slide-hint { display: none; }
+  .slide-nav .btn { flex: 1; }
+}
+.slide-nav {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  padding: 0.75rem 0 0.9rem;
+  background: linear-gradient(to bottom, transparent, #024731 35%);
+}
+[data-theme="dark"] .slide-nav { background: linear-gradient(to bottom, transparent, #012a1d 35%); }
+
+/* Cancara offers: booking button in the chat, and a pulse on the Cancara button */
+.bubble-action { margin-top: 0.6rem; display: block; width: 100%; }
+.cancara-fab.has-offer { animation: offerPulse 1.6s ease-in-out infinite; }
+@keyframes offerPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(108, 244, 121, 0.7); }
+  50% { box-shadow: 0 0 0 12px rgba(108, 244, 121, 0); }
+}
+
+/* Free-slot suggestions from the manager's diary */
+.slot-list { display: grid; gap: 0.4rem; margin-top: 0.6rem; }
+.slot-btn { width: 100%; text-align: left; padding: 0.6rem 0.9rem; font-size: 0.95rem; }
+.slot-picker { border: 0; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
+.slot-picker legend { font-weight: 700; margin-bottom: 0.3rem; }
+.slot-option { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; cursor: pointer; }
+.slot-option input { accent-color: #024731; width: 16px; height: 16px; }
+
+/* One column now that the Teams side panel is gone */
+@media (min-width: 980px) {
+  .layout { grid-template-columns: minmax(0, 1fr); max-width: 880px; }
+}
+
+/* Cancara speech bubble: introduces Cancara on the "Meet Cancara" step */
+.cancara-bubble {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 5.25rem;
+  z-index: 9;
+  max-width: 300px;
+  animation: bubblePop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+.cancara-bubble-body {
+  background: #ffffff;
+  color: #000000;
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  border: 2px solid #6cf479;
+}
+.cancara-bubble-body .eyebrow { color: #024731; }
+.cancara-bubble-body p { line-height: 1.35; margin: 0.25rem 0; }
+.cancara-bubble-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap; }
+.cancara-bubble-actions .btn { padding: 0.5rem 0.9rem; font-size: 0.95rem; }
+.cancara-bubble-tail {
+  position: absolute;
+  right: 22px;
+  bottom: -10px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid #ffffff;
+}
+[data-theme="dark"] .cancara-bubble-body { background: #0b3626; color: #e9f7ef; }
+[data-theme="dark"] .cancara-bubble-body .eyebrow { color: #6cf479; }
+[data-theme="dark"] .cancara-bubble-tail { border-top-color: #0b3626; }
+@keyframes bubblePop {
+  from { opacity: 0; transform: translateY(12px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+@media (max-width: 720px) {
+  .cancara-bubble { right: 0.9rem; bottom: 4.8rem; max-width: calc(100vw - 1.8rem); }
+}
+
+/* Draggable Cancara bubble */
+.bubble-handle {
+  cursor: grab;
+  touch-action: none;
+  background: #6cf479;
+  color: #000000;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.8rem;
+  border-radius: 14px 14px 0 0;
+  user-select: none;
+}
+.bubble-handle:active { cursor: grabbing; }
+.cancara-bubble .cancara-bubble-body { border-radius: 0 0 16px 16px; border-top: 0; }
+.cancara-bubble.moved { max-width: 320px; }
+
+/* Contrast fixes in the Cancara chat on the mint background */
+.slot-btn { color: #000000; background: #ffffff; border-color: #000000; }
+.slot-btn:hover { background: #e6ffe4; }
+.chat-head .btn.ghost { color: #000000; }
+.slide-hint { color: #e6ffe4; }
+[data-theme="dark"] .slot-btn { color: #e9f7ef; background: #134a34; border-color: #6cf479; }
+[data-theme="dark"] .chat-head .btn.ghost { color: #e9f7ef; }
+.chat-list .btn.outline.slot-btn { color: #000000; background: #ffffff; }
+.chat-list .btn.outline.slot-btn:hover { background: #e6ffe4; color: #000000; }
+[data-theme="dark"] .chat-list .btn.outline.slot-btn { color: #e9f7ef; background: #134a34; }
+
+/* ---------- Stage checklist: tick boxes for every stage ---------- */
+.stage-checklist {
+  background: #ffffff;
+  color: #000000;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+}
+.stage-checklist summary { cursor: pointer; font-weight: 700; font-size: 1.1rem; color: #024731; }
+.cl-stage { margin-top: 0.9rem; }
+.cl-title { font-weight: 700; margin-bottom: 0.3rem; }
+.cl-tag { font-weight: 400; color: #5c6360; }
+.cl-stage ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.2rem; }
+.cl-row {
+  font: inherit;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0.35rem 0.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: inherit;
+}
+.cl-row:hover:not(:disabled) { background: #e6ffe4; }
+.cl-row:disabled { cursor: default; opacity: 0.5; }
+.cl-box {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #024731;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 0.8rem;
+  background: #ffffff;
+}
+.cl-box.on { background: #024731; }
+.cl-text.done { text-decoration: line-through; color: #5c6360; }
+[data-theme="dark"] .stage-checklist { background: #0b3626; color: #e9f7ef; }
+[data-theme="dark"] .stage-checklist summary { color: #6cf479; }
+[data-theme="dark"] .cl-row:hover:not(:disabled) { background: #134a34; }
+[data-theme="dark"] .cl-box { background: #0b3626; border-color: #6cf479; }
+[data-theme="dark"] .cl-box.on { background: #6cf479; color: #00180f; }
+[data-theme="dark"] .cl-tag { color: #b9e8cc; }
+[data-theme="dark"] .cl-text.done { color: #b9e8cc; }

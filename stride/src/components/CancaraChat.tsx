@@ -2,18 +2,27 @@ import { useEffect, useRef, useState } from 'react';
 import { LINE_MANAGER } from '../data';
 import type { JourneyState } from '../store';
 import { Horse } from './Horse';
+import type { Slot } from '../calendar';
+
+const MANAGER_FIRST = LINE_MANAGER.name.split(' ')[0];
 
 type Props = {
   state: JourneyState;
   onAsk: (q: string) => void;
   onSendToManager: (q: string) => void;
   onNotifyActions: () => void;
+  onBookCheckIn: (stage: number, slot: Slot) => void;
+  // Optional controlled open state, so other parts of the screen can open the chat
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 const SUGGESTIONS = ["What's next?", 'Tell me about our values', 'Who is my buddy?', 'I need holiday information'];
 
-export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions }: Props) {
-  const [open, setOpen] = useState(false);
+export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions, onBookCheckIn, open: openProp, onOpenChange }: Props) {
+  const [innerOpen, setInnerOpen] = useState(false);
+  const open = openProp ?? innerOpen;
+  const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setInnerOpen(v));
   const [text, setText] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -27,6 +36,9 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions }: 
     ? [...state.chat].slice(0, state.chat.indexOf(lastEscalation)).reverse().find((m) => m.from === 'you')
     : undefined;
 
+  // An end-of-stage offer that has not been answered yet
+  const offerWaiting = state.chat.some((m) => m.action?.kind === 'checkin');
+
   const send = (q: string) => {
     const trimmed = q.trim();
     if (!trimmed) return;
@@ -36,7 +48,7 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions }: 
 
   return (
     <>
-      <button className="cancara-fab" onClick={() => setOpen(true)} aria-label="Ask Cancara, your AI buddy">
+      <button className={`cancara-fab${offerWaiting ? ' has-offer' : ''}`} onClick={() => setOpen(true)} aria-label="Ask Cancara, your AI buddy">
         <Horse size={40} />
         <span>Ask Cancara</span>
       </button>
@@ -65,6 +77,15 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions }: 
               {state.chat.map((m) => (
                 <div key={m.id} className={`bubble ${m.from}`}>
                   {m.text}
+                  {m.action?.kind === 'checkin' && (
+                    <div className="slot-list" role="group" aria-label={`Free times with ${MANAGER_FIRST}`}>
+                      {(m.action.slots ?? []).map((slot) => (
+                        <button key={slot.label} className="btn outline slot-btn" onClick={() => onBookCheckIn(m.action!.stage, slot)}>
+                          {slot.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

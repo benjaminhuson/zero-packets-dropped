@@ -2,13 +2,21 @@ import { Entry } from './components/Entry';
 import { StageJourney } from './components/StageJourney';
 import { CancaraChat } from './components/CancaraChat';
 import { useJourney } from './store';
+import { Welcome } from './components/Welcome';
+import { useState } from 'react';
+
 
 export default function App() {
   const journey = useJourney();
   const { state } = journey;
+  const [chatOpen, setChatOpen] = useState(false);
 
   if (!state.registered) {
     return <Entry onRegister={journey.register} />;
+  }
+
+  if (!state.welcomed) {
+    return <Welcome firstName={state.firstName} onContinue={journey.markWelcomed} />;
   }
 
   return (
@@ -16,6 +24,10 @@ export default function App() {
       <StageJourney
         state={state}
         openStage={journey.openStage}
+        dismissCelebrate={journey.dismissCelebrate}
+        promptCheckIn={journey.promptCheckIn}
+        onOpenChat={() => setChatOpen(true)}
+        bookCheckInFromChat={journey.bookCheckInFromChat}
         toggleStep={journey.toggleStep}
         saveDetails={journey.saveDetails}
         setDevice={journey.setDevice}
@@ -39,6 +51,9 @@ export default function App() {
         onAsk={journey.askCancara}
         onSendToManager={journey.sendQuestionToManager}
         onNotifyActions={journey.notifyManagerOfActions}
+        onBookCheckIn={journey.bookCheckInFromChat}
+        open={chatOpen}
+        onOpenChange={setChatOpen}
       />
       <button className="reset-link" onClick={journey.reset}>Reset prototype</button>
     </>

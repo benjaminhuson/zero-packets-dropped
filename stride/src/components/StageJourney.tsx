@@ -3,11 +3,12 @@ import { LINE_MANAGER, NEW_STARTER_ROLE } from '../data';
 import { APPROACHING_DAYS, STAGES, JOB_FAMILY, type Step } from '../stages';
 import { hasStarted, unlockedStage, type Details, type Flow, type JourneyState } from '../store';
 import { Horse } from './Horse';
+import { freeSlots, type Slot } from '../calendar';
 import { ValuesExplorer } from './ValuesExplorer';
-import { TeamsPanel } from './TeamsPanel';
 
 export interface Actions {
   openStage: (n: number) => void;
+  dismissCelebrate: () => void;
   toggleStep: (id: string) => void;
   saveDetails: (d: Details) => void;
   setDevice: (d: 'mac' | 'windows') => void;
@@ -25,6 +26,9 @@ export interface Actions {
   shareProgress: () => void;
   requestCheckIn: (req: { date: string; time: string; topic: string }) => void;
   notifyManagerOfActions: () => void;
+  promptCheckIn: (stage: number) => void;
+  onOpenChat: () => void;
+  bookCheckInFromChat: (stage: number, slot: Slot) => void;
 }
 
 interface Props extends Actions {
@@ -62,8 +66,21 @@ function stepDone(step: Step, f: Flow): boolean {
   }
 }
 
-function StepRow({ step, flow, actions }: { step: Step; flow: Flow; actions: Actions }) {
+function StepRow({ step, flow, actions, locked, prereqTitle }: { step: Step; flow: Flow; actions: Actions; locked: boolean; prereqTitle?: string }) {
   const done = stepDone(step, flow);
+  if (locked) {
+    return (
+      <li className="step locked">
+        <div className="step-head">
+          <span className="step-mark" aria-hidden="true" />
+          <div>
+            <p className="step-title">{step.title}</p>
+            <p className="step-owner">Opens after: {prereqTitle}</p>
+          </div>
+        </div>
+      </li>
+    );
+  }
   const ownerLabel = step.owner === 'you' ? 'You' : step.owner === 'manager' ? MANAGER : 'Automatic';
   const [objectives, setObjectives] = useState(flow.objectives);
   const [contacts, setContacts] = useState(flow.emergencyContacts);
@@ -138,7 +155,8 @@ function StepRow({ step, flow, actions }: { step: Step; flow: Flow; actions: Act
           <button
             className="btn outline"
             onClick={() => {
-              actions.requestCheckIn({ date: nextWorkingDate(), time: '10:00', topic });
+              const slot = freeSlots(new Date(), { count: 1 })[0];
+              if (slot) actions.requestCheckIn({ date: slot.date, time: slot.time, topic });
               setTopic('');
             }}
           >
@@ -197,6 +215,20 @@ function StepRow({ step, flow, actions }: { step: Step; flow: Flow; actions: Act
     case 'laptop':
       control = <p className="status">{flow.laptopSent ? 'Dispatched. Your welcome pack is on its way.' : 'Waiting for IT to dispatch your laptop.'}</p>;
       break;
+    case 'article':
+      control = (
+        <details className="article" open={step.openByDefault}>
+          <summary>{step.title}</summary>
+          {(step.paragraphs ?? []).map((para) => (
+            <p key={para} className="article-text">{para}</p>
+          ))}
+          <label className="step-check">
+            <input type="checkbox" checked={flow.stepsDone.includes(step.id)} onChange={() => actions.toggleStep(step.id)} />
+            <span>Mark as read</span>
+          </label>
+        </details>
+      );
+      break;
     case 'auto':
     case 'info':
     default:
@@ -223,23 +255,111 @@ export function StageJourney(props: Props) {
   const f = state.flow;
   const unlocked = unlockedStage(f);
   const viewed = STAGES[state.viewStage];
-  const stageIsUnlocked = state.viewStage <= unlocked;
   const started = hasStarted(f);
-  const progressPct = ((unlocked + 0.5) / STAGES.length) * 100;
 
-  // Walk the horse along the track when the user reaches a new stage.
+  // Slides: one step per slide inside the stage on screen.
+  const [slide, setSlide] = useState(0);
+  const steps = viewed.steps;
+  const current = steps[Math.min(slide, steps.length - 1)];
+  const currentPrereq = current.after ? steps.find((x) => x.id === current.after) : undefined;
+  const currentLocked = !!currentPrereq && !stepDone(currentPrereq, f);
+
+  // The horse sits at stage + fraction through the stage's slides.
+  const fraction = steps.length > 0 ? Math.min(slide, steps.length - 1) / steps.length : 0;
+  const horsePos = state.viewStage + fraction;
+  const progressPct = ((horsePos + 0.5) / STAGES.length) * 100;
+
+  // Gallop whenever the horse moves: a new slide or a new stage.
   const [walking, setWalking] = useState(false);
-  const lastStage = useRef(unlocked);
+  const [facing, setFacing] = useState<1 | -1>(1);
+  const lastPos = useRef(horsePos);
   useEffect(() => {
-    if (lastStage.current === unlocked) return;
-    lastStage.current = unlocked;
+    if (lastPos.current === horsePos) return;
+    setFacing(horsePos > lastPos.current ? 1 : -1);
+    lastPos.current = horsePos;
     setWalking(true);
-    const t = window.setTimeout(() => setWalking(false), 1700);
+    const t = window.setTimeout(() => setWalking(false), 900);
     return () => window.clearTimeout(t);
-  }, [unlocked]);
+  }, [horsePos]);
 
-  const nextTrigger = unlocked < STAGES.length - 1 ? STAGES[unlocked].trigger : null;
-  const triggerDone = (n: number) => n < unlocked;
+  // End of a stage: Cancara offers a check-in with the line manager (stages 1 to 4, once each)
+  useEffect(() => {
+    const atEnd = slide === steps.length - 1;
+    const unlockedHere = state.viewStage <= unlocked;
+    if (atEnd && unlockedHere && state.viewStage >= 1 && state.viewStage <= 4) props.promptCheckIn(state.viewStage);
+  }, [slide, state.viewStage, unlocked]);
+
+  const goStage = (n: number, atSlide: number) => {
+    openStage(n);
+    setSlide(atSlide);
+  };
+
+  // Next: next slide, or the first slide of the next stage if it is open.
+  const canNext = slide < steps.length - 1 || (state.viewStage < STAGES.length - 1 && state.viewStage + 1 <= unlocked);
+  const next = () => {
+    if (slide < steps.length - 1) setSlide(slide + 1);
+    else if (state.viewStage < STAGES.length - 1 && state.viewStage + 1 <= unlocked) goStage(state.viewStage + 1, 0);
+  };
+  // Back: previous slide, or the last slide of the previous stage.
+  const canBack = slide > 0 || state.viewStage > 0;
+  const back = () => {
+    if (slide > 0) setSlide(slide - 1);
+    else if (state.viewStage > 0) goStage(state.viewStage - 1, STAGES[state.viewStage - 1].steps.length - 1);
+  };
+
+  // Keyboard arrows move through the slides.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'ArrowRight') next();
+      if (e.key === 'ArrowLeft') back();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const onNode = (n: number) => goStage(n, 0);
+
+  // Cancara introduces itself with a speech bubble on the "Meet Cancara" step
+  const onCancaraStep = current.id === 's1-cancara' && !currentLocked;
+  const [bubbleHidden, setBubbleHidden] = useState(false);
+  useEffect(() => {
+    if (onCancaraStep) setBubbleHidden(false);
+  }, [onCancaraStep]);
+  const showBubble = onCancaraStep && !bubbleHidden;
+
+  // Drag the bubble anywhere on screen. Position is remembered between visits.
+  const [bubblePos, setBubblePos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const raw = localStorage.getItem('stride-bubble-pos');
+      return raw ? (JSON.parse(raw) as { x: number; y: number }) : null;
+    } catch {
+      return null;
+    }
+  });
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const dragStart = useRef<{ dx: number; dy: number } | null>(null);
+  const onDragStart = (e: React.PointerEvent) => {
+    const rect = bubbleRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    dragStart.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+  const onDragMove = (e: React.PointerEvent) => {
+    if (!dragStart.current || !bubbleRef.current) return;
+    const { width, height } = bubbleRef.current.getBoundingClientRect();
+    const x = Math.min(Math.max(0, e.clientX - dragStart.current.dx), window.innerWidth - width);
+    const y = Math.min(Math.max(0, e.clientY - dragStart.current.dy), window.innerHeight - height);
+    setBubblePos({ x, y });
+  };
+  const onDragEnd = () => {
+    if (!dragStart.current) return;
+    dragStart.current = null;
+    if (bubblePos) localStorage.setItem('stride-bubble-pos', JSON.stringify(bubblePos));
+  };
+  const stageDone = unlocked > state.viewStage;
+  const nextStageName = state.viewStage < STAGES.length - 1 ? STAGES[state.viewStage + 1].name : null;
 
   return (
     <div className="shell">
@@ -258,26 +378,42 @@ export function StageJourney(props: Props) {
 
       <div className="layout">
         <main className="main">
+          {state.celebrate !== null && (
+            <div className="celebrate" role="status">
+              <div className="celebrate-text">
+                <p className="eyebrow">Well done</p>
+                <p className="celebrate-title">
+                  Congratulations, {state.firstName}! You’ve completed {STAGES[state.celebrate - 1].name}.
+                </p>
+                <p className="fine">Stage {state.celebrate}, {STAGES[state.celebrate].name}, is now open.</p>
+              </div>
+              <button className="btn primary" onClick={props.dismissCelebrate}>Continue</button>
+            </div>
+          )}
+
           <nav className="timeline stage-track" aria-label="Your stages">
             <div className="timeline-scroll">
               <div className="timeline-inner">
                 <div className="track">
                   <div className="track-fill" style={{ width: `${progressPct}%` }} />
-                  <div className={`horse-marker${walking ? ' walking' : ''}`} style={{ left: `${progressPct}%` }} aria-label={`You are in stage ${unlocked}: ${STAGES[unlocked].name}`}>
+                  <div className={`horse-marker${walking ? ' walking' : ''}`} style={{ left: `${progressPct}%` }} aria-label={`You are on ${viewed.name}, step ${Math.min(slide, steps.length - 1) + 1} of ${steps.length}`}>
                     <span className="marker-label">You are here</span>
                     <span className="horse-body">
-                      <Horse size={46} />
+                      <span className="horse-flip" style={{ transform: `scaleX(${facing})` }}>
+                        <Horse size={46} />
+                      </span>
                     </span>
                   </div>
                 </div>
                 <ol className="nodes" style={{ gridTemplateColumns: `repeat(${STAGES.length}, 1fr)` }}>
                   {STAGES.map((s) => {
                     const isUnlocked = s.id <= unlocked;
-                    const cls = ['node', triggerDone(s.id) ? 'done' : '', s.id === state.viewStage ? 'current' : '', !isUnlocked ? 'locked' : ''].filter(Boolean).join(' ');
+                    const isDone = s.id < unlocked;
+                    const cls = ['node', isDone ? 'done' : '', s.id === state.viewStage ? 'current' : '', !isUnlocked ? 'locked' : ''].filter(Boolean).join(' ');
                     return (
                       <li key={s.id}>
-                        <button className={cls} disabled={!isUnlocked} onClick={() => openStage(s.id)} aria-current={s.id === state.viewStage ? 'step' : undefined}>
-                          <span className="dot" aria-hidden="true">{triggerDone(s.id) ? '✓' : ''}</span>
+                        <button className={cls} disabled={!isUnlocked} onClick={() => onNode(s.id)} aria-current={s.id === state.viewStage ? 'step' : undefined}>
+                          <span className="dot" aria-hidden="true">{isDone ? '✓' : ''}</span>
                           <span className="node-label">Stage {s.id}<br />{s.name}</span>
                         </button>
                       </li>
@@ -288,31 +424,71 @@ export function StageJourney(props: Props) {
             </div>
           </nav>
 
-          <article className="checkpoint stage-card" key={viewed.id}>
-            <p className="kicker">Stage {viewed.id} of {STAGES.length - 1}</p>
-            <h1>{viewed.name}</h1>
-            <p className="body">{viewed.summary}</p>
+          {showBubble && (
+            <div
+              ref={bubbleRef}
+              className={`cancara-bubble${bubblePos ? ' moved' : ''}`}
+              role="dialog"
+              aria-label="Cancara introduction"
+              style={bubblePos ? { left: bubblePos.x, top: bubblePos.y, right: 'auto', bottom: 'auto' } : undefined}
+            >
+              <div
+                className="bubble-handle"
+                onPointerDown={onDragStart}
+                onPointerMove={onDragMove}
+                onPointerUp={onDragEnd}
+                onPointerCancel={onDragEnd}
+                aria-label="Drag to move Cancara’s message"
+                role="separator"
+              >
+                <span aria-hidden="true">⠿ Drag to move</span>
+              </div>
+              <div className="cancara-bubble-body">
+                <p className="eyebrow">Cancara</p>
+                <p>Hi {state.firstName}, I’m Cancara, your AI buddy. I’ll guide you through every stage. Ask me anything, any time.</p>
+                <div className="cancara-bubble-actions">
+                  <button className="btn primary" onClick={() => { props.onOpenChat(); setBubbleHidden(true); }}>Say hello</button>
+                  <button className="btn ghost" onClick={() => setBubbleHidden(true)}>Got it</button>
+                </div>
+              </div>
+              {!bubblePos && <span className="cancara-bubble-tail" aria-hidden="true" />}
+            </div>
+          )}
 
-            {!stageIsUnlocked && (
+          <article className="checkpoint stage-card" key={`${viewed.id}-${slide}`}>
+            <div className="slide-head">
+              <p className="kicker">Stage {viewed.id} of {STAGES.length - 1} · {viewed.name}</p>
+              <p className="slide-count">Step {Math.min(slide, steps.length - 1) + 1} of {steps.length}</p>
+            </div>
+            <div className="slide-dots" role="tablist" aria-label="Steps in this stage">
+              {steps.map((st, i) => (
+                <button
+                  key={st.id}
+                  className={`slide-dot${i === slide ? ' on' : ''}${stepDone(st, f) ? ' done' : ''}`}
+                  onClick={() => setSlide(i)}
+                  aria-label={`Step ${i + 1}: ${st.title}`}
+                  aria-selected={i === slide}
+                  role="tab"
+                />
+              ))}
+            </div>
+
+            {state.viewStage <= unlocked ? (
+              <ol className="steps slide">
+                <StepRow key={current.id} step={current} flow={f} actions={props} locked={currentLocked} prereqTitle={currentPrereq?.title} />
+              </ol>
+            ) : (
               <p className="fine">This stage is locked until the previous trigger is met.</p>
             )}
 
-            {stageIsUnlocked && viewed.id === 0 && (
+            {viewed.id === 0 && slide === 0 && (
               <div className="role-card-simple">
                 <p className="eyebrow">Your role</p>
                 <p><strong>{NEW_STARTER_ROLE.title}</strong>, {NEW_STARTER_ROLE.team}</p>
               </div>
             )}
 
-            {stageIsUnlocked && (
-              <ol className="steps">
-                {viewed.steps.map((step) => (
-                  <StepRow key={step.id} step={step} flow={f} actions={props} />
-                ))}
-              </ol>
-            )}
-
-            {viewed.id < STAGES.length - 1 && (
+            {slide === steps.length - 1 && viewed.id < STAGES.length - 1 && (
               <div className="trigger-banner">
                 <p className="eyebrow">Next stage unlocks when</p>
                 <p>{viewed.trigger}.</p>
@@ -320,28 +496,55 @@ export function StageJourney(props: Props) {
               </div>
             )}
 
-            {viewed.id === 5 && started && <p className="ok">You have started. Welcome to Lloyds.</p>}
+            {viewed.id === 5 && started && slide === steps.length - 1 && <p className="ok">You have started. Welcome to Lloyds.</p>}
           </article>
 
-          <section className="demo-card" aria-label="Prototype controls">
-            <p className="eyebrow">Prototype controls</p>
-            <p className="fine">These stand in for Workday, Entra ID and IT. Replace them with real events.</p>
-            <div className="demo-grid">
-              <button className="btn outline" onClick={props.completeVetting} disabled={f.vettingComplete}>Workday: vetting complete</button>
-              <button className="btn outline" onClick={props.managerConfirmDate} disabled={!f.starterAgreedDate || f.managerAgreedDate}>{MANAGER}: confirm start date</button>
-              <button className="btn outline" onClick={() => props.managerSetUpn(`${state.firstName.toLowerCase() || 'new.starter'}@lloydsbanking.example`)} disabled={!!f.upn || unlocked < 4}>{MANAGER}: add UPN in Entra</button>
-              <button className="btn outline" onClick={props.dispatchLaptop} disabled={f.laptopSent || unlocked < 4}>IT: dispatch laptop</button>
-              <button className="btn outline" onClick={props.simulateApproaching} disabled={f.demoApproaching}>Start date is approaching</button>
-              <button className="btn outline" onClick={props.simulateStarted} disabled={f.demoStarted}>Start date reached</button>
-            </div>
-          </section>
+          <div className="slide-nav">
+            <button className="btn outline" onClick={back} disabled={!canBack} aria-label="Previous step">
+              ← Back
+            </button>
+            <p className="fine slide-hint">Use the arrow keys or the buttons to move through the steps.</p>
+            {canNext ? (
+              <button className="btn primary" onClick={next} aria-label="Next step">
+                {slide === steps.length - 1 && nextStageName ? `Next: ${nextStageName} →` : 'Next →'}
+              </button>
+            ) : (
+              <button className="btn primary" disabled aria-label="Next step locked">
+                {stageDone ? 'All done' : 'Locked'}
+              </button>
+            )}
+          </div>
 
-          {nextTrigger && <p className="fine">Trigger for the next stage: {nextTrigger}.</p>}
+          <details className="stage-checklist" open>
+            <summary>Your checklist</summary>
+            {STAGES.map((st) => {
+              const open = st.id <= unlocked;
+              return (
+                <div key={st.id} className={`cl-stage${open ? '' : ' cl-locked'}`}>
+                  <p className="cl-title">
+                    Stage {st.id}: {st.name}
+                    {!open && <span className="cl-tag"> · locked</span>}
+                  </p>
+                  <ul>
+                    {st.steps.map((step, i) => {
+                      const done = stepDone(step, f);
+                      return (
+                        <li key={step.id}>
+                          <button className="cl-row" disabled={!open} onClick={() => goStage(st.id, i)}>
+                            <span className={`cl-box${done ? ' on' : ''}`} aria-hidden="true">{done ? '✓' : ''}</span>
+                            <span className={done ? 'cl-text done' : 'cl-text'}>{step.title}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+          </details>
+
         </main>
 
-        <aside className="side">
-          <TeamsPanel state={state} stageLabel={`Stage ${unlocked}: ${STAGES[unlocked].name}`} onShare={props.shareProgress} onRequestCheckIn={props.requestCheckIn} />
-        </aside>
       </div>
     </div>
   );

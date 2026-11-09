@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { PAGES } from './data';
 import { answer, type ChatMessage } from './agent';
 import { APPROACHING_DAYS, STAGES } from './stages';
+import { freeSlots, type Slot } from './calendar';
 import { LINE_MANAGER } from './data';
 
 const STORAGE_KEY = 'stride-stages-v1';
@@ -53,6 +54,9 @@ export interface JourneyState {
   firstName: string;
   flow: Flow;
   viewStage: number; // stage shown on screen
+  welcomed: boolean; // has seen the first-visit welcome
+  celebrate: number | null; // stage just unlocked, shown as a congratulations banner
+  checkinPrompted: number[]; // stages where Cancara has offered a check-in
   announced: number[]; // stages the starter has been told are unlocked
   shares: ProgressShare[];
   checkIns: CheckInRequest[];
@@ -85,6 +89,9 @@ const initial: JourneyState = {
   firstName: '',
   flow: emptyFlow,
   viewStage: 0,
+  welcomed: false,
+  celebrate: null,
+  checkinPrompted: [],
   announced: [],
   shares: [],
   checkIns: [],
@@ -137,7 +144,16 @@ export function hasStarted(f: Flow, today: Date = new Date()): boolean {
   return f.demoStarted || (!!f.startDate && daysUntil(f.startDate, today) <= 0);
 }
 
-// Keep the starter informed when a new stage unlocks.
+const cancaraMsg = (text: string, action?: ChatMessage['action']): ChatMessage => ({
+  id: newId('msg'),
+  from: 'cancara',
+  text,
+  sentAt: now(),
+  ...(action ? { action } : {}),
+});
+
+
+// Keep the starter informed when a new stage unlocks. Updates go to the Cancara chat.
 function announce(s: JourneyState): JourneyState {
   const unlocked = unlockedStage(s.flow);
   const fresh = [];
@@ -145,14 +161,15 @@ function announce(s: JourneyState): JourneyState {
     if (!s.announced.includes(n) && n > 0) fresh.push(n);
   }
   if (fresh.length === 0) return s;
-  const msgs: TeamsMessage[] = fresh.map((n) => ({
+  const msgs: Pick<TeamsMessage, 'text'>[] = fresh.map((n) => ({
     id: newId('teams'),
     sentAt: now(),
     direction: 'to-starter',
     kind: 'stage',
     text: `Stage ${n} unlocked: ${STAGES[n].name}. ${STAGES[n].summary}`,
   }));
-  return { ...s, announced: [...s.announced, ...fresh], teams: [...msgs, ...s.teams] };
+  const chatMsgs = msgs.map((m) => cancaraMsg(m.text));
+  return { ...s, announced: [...s.announced, ...fresh], chat: [...s.chat, ...chatMsgs], celebrate: Math.max(...fresh) };
 }
 
 export function useJourney() {
@@ -218,21 +235,21 @@ export function useJourney() {
   const managerConfirmDate = () =>
     update((s) => {
       const next = patchFlow(s, { managerAgreedDate: true });
-      return { ...next, teams: [msg('to-starter', 'stage', `${MANAGER} confirmed your start date.`), ...next.teams] };
+      return { ...next, chat: [...next.chat, cancaraMsg(`${MANAGER} confirmed your start date.`)] };
     });
 
   // Demo event: Workday completes vetting. This triggers stage 2.
   const completeVetting = () =>
     update((s) => {
       const next = patchFlow(s, { vettingComplete: true });
-      return { ...next, teams: [msg('to-starter', 'stage', 'Vetting is complete. You can now move on to stage 2.'), ...next.teams] };
+      return { ...next, chat: [...next.chat, cancaraMsg('Vetting is complete. You can now move on to stage 2.')] };
     });
 
   // Demo event: the line manager adds the new starter's UPN in Entra ID
   const managerSetUpn = (upn: string) =>
     update((s) => {
       const next = patchFlow(s, { upn: upn.trim() });
-      return { ...next, teams: [msg('to-starter', 'stage', `${MANAGER} added your account in Microsoft Entra ID.`), ...next.teams] };
+      return { ...next, chat: [...next.chat, cancaraMsg(`${MANAGER} added your account in Microsoft Entra ID.`)] };
     });
 
   // Demo event: IT dispatches the laptop
@@ -286,12 +303,56 @@ export function useJourney() {
       return { ...s, teams: [msg('to-manager', 'action', text), ...s.teams] };
     });
 
+  const markWelcomed = () => setState((s) => ({ ...s, welcomed: true }));
+
+  // At the end of a stage, Cancara offers a check-in with the line manager. Offered once per stage.
+  const promptCheckIn = (stage: number) =>
+    update((s) => {
+      if (s.checkinPrompted.includes(stage)) return s;
+      const next = STAGES[stage + 1]?.name ?? 'the next stage';
+      const slots = freeSlots(new Date(), { count: 3 });
+      return {
+        ...s,
+        checkinPrompted: [...s.checkinPrompted, stage],
+        chat: [
+          ...s.chat,
+          cancaraMsg(
+            `You have finished ${STAGES[stage].name}. Before ${next}, would you like a check-in with ${MANAGER}? These times are free in ${MANAGER}’s diary.`,
+            { kind: 'checkin', stage, slots },
+          ),
+        ],
+      };
+    });
+
+  // Book the check-in from Cancara's offer, and confirm it in the chat.
+  const bookCheckInFromChat = (stage: number, slot: Slot) =>
+    update((s) => {
+      const { date, time } = slot;
+      const checkIn: CheckInRequest = { id: newId('checkin'), status: 'sent', date, time, topic: `${STAGES[stage].name} check-in` };
+      const withoutOffer = s.chat.map((m) => (m.action?.kind === 'checkin' && m.action.stage === stage ? { ...m, action: undefined } : m));
+      return {
+        ...s,
+        checkIns: [checkIn, ...s.checkIns],
+        chat: [
+          ...withoutOffer,
+          cancaraMsg(`Done. I have sent ${MANAGER} a check-in invite for ${slot.label} on Teams.`),
+        ],
+        teams: [msg('to-manager', 'check-in', `Check-in request for ${date} at ${time}: ${checkIn.topic}`), ...s.teams],
+      };
+    });
+  const dismissCelebrate = () => setState((s) => ({ ...s, celebrate: null }));
+
   const reset = () => setState({ ...initial, lastVisit: now() });
 
   return {
     state,
     register,
     openStage,
+    markWelcomed,
+    promptCheckIn,
+    bookCheckInFromChat,
+    freeSlots,
+    dismissCelebrate,
     toggleStep,
     saveDetails,
     setDevice,
