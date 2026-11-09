@@ -1,0 +1,37 @@
+// Section 2: in-memory store for local runs and tests. Data is lost when the process stops.
+import type { ChatTurn, CheckInRequest, Journey, Store, TeamsMessage, UserId } from '../contracts.js';
+
+export class MemoryStore implements Store {
+  private journeys = new Map<UserId, Journey>();
+  private messages: TeamsMessage[] = [];
+  private checkIns: CheckInRequest[] = [];
+  private chat: ChatTurn[] = [];
+
+  async getJourney(userId: UserId) {
+    return this.journeys.get(userId) ?? null;
+  }
+  async saveJourney(journey: Journey) {
+    this.journeys.set(journey.userId, journey);
+  }
+  async listUserIds() {
+    return [...this.journeys.keys()];
+  }
+  async appendMessage(message: TeamsMessage) {
+    this.messages.unshift(message);
+  }
+  async listMessages(userId: UserId) {
+    return this.messages.filter((m) => m.userId === userId);
+  }
+  async addCheckIn(checkIn: CheckInRequest) {
+    this.checkIns.unshift(checkIn);
+  }
+  async listCheckIns(userId: UserId) {
+    return this.checkIns.filter((c) => c.userId === userId);
+  }
+  async appendChat(turn: ChatTurn) {
+    this.chat.push(turn);
+  }
+  async listChat(userId: UserId) {
+    return this.chat.filter((t) => t.userId === userId);
+  }
+}
