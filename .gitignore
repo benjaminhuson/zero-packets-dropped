@@ -21,3 +21,9 @@ appsettings.Development.json
 
 # Claude Code local config
 .claude/
+
+# Deploy state (web app name, host)
+infra/.deploy/
+
+# macOS
+.DS_Store

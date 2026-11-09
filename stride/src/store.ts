@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { api } from './api';
 import { PAGES } from './data';
 import { answer, type ChatMessage } from './agent';
 import { APPROACHING_DAYS, STAGES } from './stages';
@@ -93,15 +94,30 @@ const initial: JourneyState = {
   lastVisit: '',
 };
 
-function load(): JourneyState {
+function hydrate(saved: Partial<JourneyState> | null | undefined): JourneyState {
+  if (!saved) return initial;
+  return { ...initial, ...saved, flow: { ...emptyFlow, ...(saved.flow ?? {}) } };
+}
+
+function load(key: string): JourneyState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return initial;
-    const saved = JSON.parse(raw) as Partial<JourneyState>;
-    return { ...initial, ...saved, flow: { ...emptyFlow, ...(saved.flow ?? {}) } };
+    const raw = localStorage.getItem(key);
+    return raw ? hydrate(JSON.parse(raw) as Partial<JourneyState>) : initial;
   } catch {
     return initial;
   }
+}
+
+// What the line manager and buddy may see. The rest of the state stays the colleague's own.
+export function summarise(s: JourneyState) {
+  const stage = unlockedStage(s.flow);
+  return {
+    stage,
+    stageName: STAGES[stage]?.name ?? '',
+    stagesTotal: STAGES.length,
+    stepsDone: s.flow.stepsDone.length,
+    startDate: s.flow.startDate,
+  };
 }
 
 const now = () => new Date().toISOString();
@@ -155,16 +171,41 @@ function announce(s: JourneyState): JourneyState {
   return { ...s, announced: [...s.announced, ...fresh], teams: [...msgs, ...s.teams] };
 }
 
-export function useJourney() {
+// userId: the signed-in colleague (state is saved to the Stride API as well as this browser).
+// Without one, the prototype runs offline in this browser only, as before.
+export function useJourney(userId?: string) {
+  const key = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
   const [boot] = useState(() => {
-    const saved = load();
+    const saved = load(key);
     return { state: { ...saved, lastVisit: now() } };
   });
   const [state, setState] = useState<JourneyState>(boot.state);
+  const [synced, setSynced] = useState(!userId); // don't save to the server until we have loaded from it
+
+  // Signed in: the server copy wins, so the journey follows the colleague across devices.
+  useEffect(() => {
+    if (!userId) return;
+    let live = true;
+    api.loadState<Partial<JourneyState>>()
+      .then((saved) => { if (live && saved?.state) setState({ ...hydrate(saved.state), lastVisit: now() }); })
+      .catch((err) => console.warn('Could not load saved journey', err))
+      .finally(() => { if (live) setSynced(true); });
+    return () => { live = false; };
+  }, [userId]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    try { localStorage.setItem(key, JSON.stringify(state)); } catch { /* storage full or blocked */ }
+  }, [key, state]);
+
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!userId || !synced) return;
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      api.saveState(state, summarise(state)).catch((err) => console.warn('Could not save journey', err));
+    }, 800);
+    return () => window.clearTimeout(timer.current);
+  }, [userId, synced, state]);
 
   // Every change goes through here so unlock announcements are always sent
   const update = (fn: (s: JourneyState) => JourneyState) => setState((s) => announce(fn(s)));
