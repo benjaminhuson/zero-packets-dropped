@@ -1,7 +1,6 @@
 // Cancara, the AI buddy.
 // Prototype: a rule-based responder so the flows can be tested end to end. Replace `answer`
 // with a call to the approved AI service once it is connected.
-import { LINE_MANAGER } from './data';
 
 export type ChatMessage = {
   id: string;
@@ -14,7 +13,7 @@ export type ChatMessage = {
   action?: { kind: 'checkin'; stage: number; slots?: { date: string; time: string; label: string }[] };
 };
 
-// Things Priya needs to do in each week, sent to her in Teams
+// Things the line manager needs to do in each week, sent to them in Teams
 const MANAGER_ACTIONS: Record<number, string> = {
   1: 'Agree your first objectives with the new starter and check they have booked coffees with the team',
   2: 'Check the induction e-learning is on track',
@@ -39,22 +38,22 @@ const RULES: { words: string[]; reply: string; escalate?: boolean }[] = [
   },
   {
     words: ['laptop', 'mfa', 'login', 'password', 'access'],
-    reply: 'For laptop and login issues, use the IT self-service portal. If you are still stuck, Priya can help you raise it.',
+    reply: 'For laptop and login issues, use the IT self-service portal. If you are still stuck, your manager can help you raise it.',
     escalate: true,
   },
   {
     words: ['holiday', 'leave', 'annual'],
-    reply: 'Holiday is booked through the leave portal. Priya approves it, so it is worth talking it through at your next check-in.',
+    reply: 'Holiday is booked through the leave portal. Your manager approves it, so it is worth talking it through at your next check-in.',
     escalate: true,
   },
   {
     words: ['pay', 'salary', 'payslip', 'benefits'],
-    reply: 'Pay and benefits questions are best answered by HR. I can pass your question to Priya on Teams so she can point you in the right direction.',
+    reply: 'Pay and benefits questions are best answered by HR. I can pass your question to your manager on Teams so they can point you in the right direction.',
     escalate: true,
   },
   {
     words: ['buddy', 'ben', 'who'],
-    reply: 'Ben Carter is your human buddy. He is your first port of call for anything that feels unclear. You can also see everyone you will work with on the Our team page.',
+    reply: 'Your buddy is your first port of call for anything that feels unclear. You can also see everyone you will work with on the Our team page.',
   },
   {
     words: ['next', 'week', 'today', 'do'],
@@ -77,7 +76,7 @@ export function answer(question: string, currentWeek: number, currentTitle: stri
     }
   }
   return {
-    text: `I am not sure about that one. I can pass it to ${LINE_MANAGER.name} on Teams so she can reply. Would you like me to?`,
+    text: `I am not sure about that one. I can pass it to your manager on Teams so they can reply. Would you like me to?`,
     escalate: true,
   };
 }

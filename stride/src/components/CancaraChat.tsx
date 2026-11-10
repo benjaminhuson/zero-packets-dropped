@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { LINE_MANAGER } from '../data';
 import type { JourneyState } from '../store';
 import { Horse } from './Horse';
 import type { Slot } from '../calendar';
 
-const MANAGER_FIRST = LINE_MANAGER.name.split(' ')[0];
 
 type Props = {
   state: JourneyState;
@@ -17,7 +15,7 @@ type Props = {
   onOpenChange?: (open: boolean) => void;
 };
 
-const SUGGESTIONS = ["What's next?", 'Tell me about our values', 'Who is my buddy?', 'I need holiday information'];
+const SUGGESTIONS = ['Where am I?', "What's next?", 'Tell me about our values', 'Who is my buddy?', 'I need holiday information'];
 
 export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions, onBookCheckIn, open: openProp, onOpenChange }: Props) {
   const [innerOpen, setInnerOpen] = useState(false);
@@ -50,7 +48,7 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions, on
     <>
       <button className={`cancara-fab${offerWaiting ? ' has-offer' : ''}`} onClick={() => setOpen(true)} aria-label="Ask Cancara, your AI buddy">
         <Horse size={40} />
-        <span>Ask Cancara</span>
+        <span>Ask Cancara · Stage {state.viewStage}</span>
       </button>
 
       {open && (
@@ -61,7 +59,7 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions, on
               <Horse size={38} />
               <div>
                 <p className="chat-name">Cancara</p>
-                <p className="fine">Your AI buddy · answers from Stride. Priya sees anything you send her.</p>
+                <p className="fine">Your AI buddy · answers from Stride. Your manager sees anything you send them.</p>
               </div>
               <button className="btn ghost" onClick={() => setOpen(false)}>
                 Close
@@ -78,7 +76,7 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions, on
                 <div key={m.id} className={`bubble ${m.from}`}>
                   {m.text}
                   {m.action?.kind === 'checkin' && (
-                    <div className="slot-list" role="group" aria-label={`Free times with ${MANAGER_FIRST}`}>
+                    <div className="slot-list" role="group" aria-label="Free times with your manager">
                       {(m.action.slots ?? []).map((slot) => (
                         <button key={slot.label} className="btn outline slot-btn" onClick={() => onBookCheckIn(m.action!.stage, slot)}>
                           {slot.label}
@@ -92,9 +90,9 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions, on
 
             {lastEscalation && lastQuestion && (
               <div className="escalate">
-                <p className="fine">Cancara could not fully answer this. Would you like Priya to reply?</p>
+                <p className="fine">Cancara could not fully answer this. Would you like your manager to reply?</p>
                 <button className="btn primary block" onClick={() => onSendToManager(lastQuestion.text)}>
-                  Send to {LINE_MANAGER.name.split(' ')[0]} on Teams
+                  Send to your manager on Teams
                 </button>
               </div>
             )}
@@ -127,7 +125,7 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions, on
 
             <div className="chat-foot">
               <button className="btn outline block" onClick={onNotifyActions}>
-                Let {LINE_MANAGER.name.split(' ')[0]} know what she needs to do
+                Let your manager know what they need to do
               </button>
             </div>
           </section>

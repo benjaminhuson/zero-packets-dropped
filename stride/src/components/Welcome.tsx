@@ -1,4 +1,5 @@
 import { Horse } from './Horse';
+import { BUDDY, LINE_MANAGER } from '../data';
 
 type Props = { firstName: string; onContinue: () => void };
 
@@ -21,6 +22,9 @@ export function Welcome({ firstName, onContinue }: Props) {
         <h1 id="welcome-title">Welcome to Lloyds Bank, {firstName}.</h1>
         <p className="welcome-lead">
           We are really glad you are here. Stride is your path to day one.
+        </p>
+        <p className="welcome-lead">
+          Your manager is <strong>{LINE_MANAGER.name}</strong> and your buddy is <strong>{BUDDY.name}</strong>.
         </p>
         <p className="eyebrow welcome-eyebrow">How Stride works</p>
         <ul className="welcome-points">

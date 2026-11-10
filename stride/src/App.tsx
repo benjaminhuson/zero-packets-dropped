@@ -35,6 +35,7 @@ export default function App() {
         confirmNotice={journey.confirmNotice}
         saveObjectives={journey.saveObjectives}
         saveContacts={journey.saveContacts}
+        setLocation={journey.setLocation}
         agreeStartDate={journey.agreeStartDate}
         managerConfirmDate={journey.managerConfirmDate}
         completeVetting={journey.completeVetting}

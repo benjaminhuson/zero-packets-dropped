@@ -334,7 +334,7 @@ li.done { color: var(--muted); }
   position: absolute;
   top: -17px;
   transform: translateX(-50%);
-  transition: left 1.6s cubic-bezier(0.45, 0, 0.25, 1);
+  transition: left 2.4s cubic-bezier(0.45, 0, 0.25, 1);
   line-height: 0;
   z-index: 2;
   filter: drop-shadow(0 4px 6px rgba(0, 40, 30, 0.28));
@@ -367,13 +367,16 @@ li.done { color: var(--muted); }
 }
 .horse-body, .horse-flip { display: block; }
 .horse-flip { transition: transform 0.2s ease; }
-.horse-marker.walking .horse-body { animation: gallop 0.42s ease-in-out infinite; transform-origin: 50% 90%; }
+.horse-marker.walking .horse-body { animation: gallop 0.9s ease-in-out infinite; transform-origin: 50% 90%; }
 @keyframes gallop {
-  0%   { transform: translateY(0) rotate(-4deg) scale(1, 1); }
-  25%  { transform: translateY(-9px) rotate(3deg) scale(0.98, 1.06); }
-  50%  { transform: translateY(-2px) rotate(6deg) scale(1.03, 0.97); }
-  75%  { transform: translateY(-8px) rotate(-2deg) scale(0.98, 1.05); }
-  100% { transform: translateY(0) rotate(-4deg) scale(1, 1); }
+  0%   { transform: translateY(0) rotate(-6deg) scale(1, 1); }
+  15%  { transform: translateY(-14px) rotate(4deg) scale(0.94, 1.1); }
+  30%  { transform: translateY(-2px) rotate(-3deg) scale(1.08, 0.92); }
+  45%  { transform: translateY(-18px) rotate(8deg) scale(0.92, 1.12); }
+  60%  { transform: translateY(-3px) rotate(-5deg) scale(1.06, 0.95); }
+  75%  { transform: translateY(-12px) rotate(5deg) scale(0.96, 1.06); }
+  90%  { transform: translateY(-1px) rotate(-4deg) scale(1.04, 0.97); }
+  100% { transform: translateY(0) rotate(-6deg) scale(1, 1); }
 }
 .nodes { list-style: none; padding: 0; display: grid; position: relative; }
 .nodes li { display: flex; justify-content: center; }
@@ -1632,54 +1635,66 @@ body, .checkpoint, .timeline { -webkit-font-smoothing: antialiased; }
 .chat-list .btn.outline.slot-btn:hover { background: #e6ffe4; color: #000000; }
 [data-theme="dark"] .chat-list .btn.outline.slot-btn { color: #e9f7ef; background: #134a34; }
 
-/* ---------- Stage checklist: tick boxes for every stage ---------- */
-.stage-checklist {
+
+/* ---------- What to do next: dropdown for the current stage only ---------- */
+.next-help {
   background: #ffffff;
   color: #000000;
   border-radius: 16px;
-  padding: 1rem 1.25rem;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  padding: 0.9rem 1.25rem;
 }
-.stage-checklist summary { cursor: pointer; font-weight: 700; font-size: 1.1rem; color: #024731; }
-.cl-stage { margin-top: 0.9rem; }
-.cl-title { font-weight: 700; margin-bottom: 0.3rem; }
-.cl-tag { font-weight: 400; color: #5c6360; }
-.cl-stage ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.2rem; }
-.cl-row {
-  font: inherit;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  padding: 0.35rem 0.4rem;
-  border-radius: 8px;
-  cursor: pointer;
-  color: inherit;
+.next-help summary { cursor: pointer; font-weight: 700; color: #024731; }
+.next-help .next-trigger { margin: 0.6rem 0 0.4rem; }
+.next-help ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.35rem; }
+.next-help li { display: flex; align-items: center; gap: 0.6rem; }
+.next-help .cl-box { width: 20px; height: 20px; border: 2px solid #024731; border-radius: 5px; flex: 0 0 20px; }
+
+/* Congratulations inside the "You said yes" step */
+.congrats-inline {
+  margin: 0.9rem 0 0 calc(26px + 0.75rem);
+  background: #6cf479;
+  color: #000000;
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.cl-row:hover:not(:disabled) { background: #e6ffe4; }
-.cl-row:disabled { cursor: default; opacity: 0.5; }
-.cl-box {
-  flex: 0 0 22px;
-  width: 22px;
-  height: 22px;
-  border: 2px solid #024731;
-  border-radius: 5px;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  color: #ffffff;
-  font-size: 0.8rem;
-  background: #ffffff;
+.congrats-title { font-size: 1.4rem; font-weight: 700; line-height: 1.2; margin-bottom: 0.25rem; }
+.congrats-inline p { margin: 0.2rem 0; }
+
+/* Lloyds history: expandable sections */
+.fact { margin: 0.5rem 0; background: #f5fff4; border-left: 4px solid #11b67a; border-radius: 8px; padding: 0.5rem 0.9rem; }
+.fact summary { cursor: pointer; font-weight: 700; color: #024731; padding: 0.3rem 0; }
+.fact .article-text { margin: 0.3rem 0 0.4rem; }
+.fact-link { display: inline-block; margin: 0.3rem 0 0.5rem; color: #024731; font-weight: 700; text-decoration: underline; }
+
+/* People in the header, and the check-in button made visible */
+.people-chip { font-size: 0.85rem; font-weight: 700; background: rgba(255, 255, 255, 0.12); color: #ffffff; border-radius: 999px; padding: 0.3rem 0.7rem; white-space: nowrap; }
+.step .btn.outline, .slot-btn.btn.outline { color: #000000; background: #ffffff; border-color: #000000; }
+.step .btn.outline:hover { background: #e6ffe4; }
+.demo-confirm { margin-top: 0.4rem; justify-self: start; font-size: 0.95rem; }
+.device-picker { display: grid; gap: 0.6rem; }
+.device-why { background: #f5fff4; border-left: 4px solid #11b67a; border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0; line-height: 1.4; }
+.choice { flex-wrap: wrap; }
+.parcel { display: grid; gap: 0.6rem; margin-top: 0.6rem; }
+.parcel-track { list-style: none; padding: 0; margin: 0; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.parcel-track li { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: #5c6360; }
+.parcel-track li.done { color: #024731; font-weight: 700; }
+.parcel-track li.now { color: #000000; font-weight: 700; }
+.parcel-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #024731; background: #ffffff; }
+.parcel-track li.done .parcel-dot { background: #024731; }
+.parcel-track li.now .parcel-dot { background: #6cf479; }
+
+/* Start day: first-day timeline and useful contacts */
+.day-plan, .contacts-card { background: #ffffff; border-radius: 12px; padding: 1rem 1.1rem; border-left: 4px solid #024731; }
+.day-plan-title { font-weight: 700; font-size: 1.1rem; color: #024731; margin-bottom: 0.5rem; }
+.day-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+.day-steps li { display: grid; grid-template-columns: 110px 1fr; gap: 0.75rem; align-items: start; line-height: 1.4; }
+.day-time { font-weight: 700; color: #024731; }
+.contact-list { margin: 0; display: grid; gap: 0.6rem; }
+.contact-list > div { display: grid; grid-template-columns: 170px 1fr; gap: 0.75rem; line-height: 1.4; }
+.contact-list dt { font-weight: 700; }
+.contact-list dd { margin: 0; }
+.contact-list a { color: #024731; font-weight: 700; }
+@media (max-width: 720px) {
+  .day-steps li, .contact-list > div { grid-template-columns: 1fr; gap: 0.2rem; }
 }
-.cl-box.on { background: #024731; }
-.cl-text.done { text-decoration: line-through; color: #5c6360; }
-[data-theme="dark"] .stage-checklist { background: #0b3626; color: #e9f7ef; }
-[data-theme="dark"] .stage-checklist summary { color: #6cf479; }
-[data-theme="dark"] .cl-row:hover:not(:disabled) { background: #134a34; }
-[data-theme="dark"] .cl-box { background: #0b3626; border-color: #6cf479; }
-[data-theme="dark"] .cl-box.on { background: #6cf479; color: #00180f; }
-[data-theme="dark"] .cl-tag { color: #b9e8cc; }
-[data-theme="dark"] .cl-text.done { color: #b9e8cc; }

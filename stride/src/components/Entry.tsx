@@ -68,7 +68,7 @@ export function Entry({ onRegister }: Props) {
               Start my journey
             </button>
             <p className="fine">
-              When you register, {LINE_MANAGER.name} is notified in Microsoft Teams so they can get ready
+              When you register, your manager ({LINE_MANAGER.name}) is notified in Microsoft Teams so they can get ready
               to welcome you.
             </p>
           </form>

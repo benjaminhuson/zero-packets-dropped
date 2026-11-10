@@ -3,13 +3,13 @@ import { PAGES } from './data';
 import { answer, type ChatMessage } from './agent';
 import { APPROACHING_DAYS, STAGES } from './stages';
 import { freeSlots, type Slot } from './calendar';
-import { LINE_MANAGER } from './data';
 
 const STORAGE_KEY = 'stride-stages-v1';
-const MANAGER = LINE_MANAGER.name.split(' ')[0];
+const MANAGER = 'your manager';
 const DAY_MS = 86400000;
 
-export type Device = 'mac' | 'windows';
+export type Device = 'standard-mac' | 'developer-mac' | 'windows';
+export type WorkLocation = 'leeds' | 'london' | 'virtual';
 
 export interface Details {
   preferredName: string;
@@ -41,9 +41,10 @@ export interface Flow {
   device: Device | null;
   photoName: string | null;
   objectives: string;
-  upn: string | null; // set by the line manager in Entra ID
+  upn: string | null; // work email address, set up by the line manager
   laptopSent: boolean;
   emergencyContacts: string;
+  location: WorkLocation | null; // where the starter works, agreed with their manager
   // Demo overrides for date-based triggers, so the PoC can be shown without waiting
   demoApproaching: boolean;
   demoStarted: boolean;
@@ -80,6 +81,7 @@ const emptyFlow: Flow = {
   upn: null,
   laptopSent: false,
   emergencyContacts: '',
+  location: null,
   demoApproaching: false,
   demoStarted: false,
 };
@@ -221,6 +223,8 @@ export function useJourney() {
 
   const saveContacts = (text: string) => update((s) => patchFlow(s, { emergencyContacts: text }));
 
+  const setLocation = (location: WorkLocation) => update((s) => patchFlow(s, { location }));
+
   // The starter proposes a start date. Both parties must agree before stage 3 unlocks.
   const agreeStartDate = (date: string) =>
     update((s) => {
@@ -245,11 +249,11 @@ export function useJourney() {
       return { ...next, chat: [...next.chat, cancaraMsg('Vetting is complete. You can now move on to stage 2.')] };
     });
 
-  // Demo event: the line manager adds the new starter's UPN in Entra ID
+  // Event: the line manager sets up the new starter's work email address
   const managerSetUpn = (upn: string) =>
     update((s) => {
       const next = patchFlow(s, { upn: upn.trim() });
-      return { ...next, chat: [...next.chat, cancaraMsg(`${MANAGER} added your account in Microsoft Entra ID.`)] };
+      return { ...next, chat: [...next.chat, cancaraMsg(`${MANAGER} has set up your work email address. You will need it to sign in when your laptop arrives.`)] };
     });
 
   // Demo event: IT dispatches the laptop
@@ -280,7 +284,18 @@ export function useJourney() {
   const askCancara = (question: string) =>
     update((s) => {
       const stage = STAGES[s.viewStage];
-      const reply = answer(question, 0, stage.name);
+      const unlocked = unlockedStage(s.flow);
+      const asksWhere = /where\s+(am|are)\s+(i|we)|my\s+progress|what\s+stage|which\s+stage/i.test(question);
+      const reply = asksWhere
+        ? {
+            text: `You are in Stage ${s.viewStage}: ${stage.name}. ${
+              unlocked < STAGES.length - 1
+                ? `The next stage, ${STAGES[unlocked + 1].name}, unlocks when: ${STAGES[unlocked].trigger.toLowerCase()}.`
+                : 'You have reached the final stage.'
+            }`,
+            escalate: false,
+          }
+        : answer(question, 0, stage.name);
       const you: ChatMessage = { id: newId('msg'), from: 'you', text: question, sentAt: now() };
       const cancara: ChatMessage = { id: newId('msg'), from: 'cancara', text: reply.text, sentAt: now(), escalate: reply.escalate };
       return { ...s, chat: [...s.chat, you, cancara] };
@@ -298,7 +313,7 @@ export function useJourney() {
     update((s) => {
       const waiting: string[] = [];
       if (s.flow.startDate && s.flow.starterAgreedDate && !s.flow.managerAgreedDate) waiting.push('Confirm the agreed start date');
-      if (unlockedStage(s.flow) >= 4 && !s.flow.upn) waiting.push('Add the new starter’s UPN in Microsoft Entra ID');
+      if (unlockedStage(s.flow) >= 4 && !s.flow.upn) waiting.push('Set up the new starter’s work email address');
       const text = waiting.length ? `Actions for you: ${waiting.join(' · ')}` : 'Nothing is waiting on you right now.';
       return { ...s, teams: [msg('to-manager', 'action', text), ...s.teams] };
     });
@@ -360,6 +375,7 @@ export function useJourney() {
     confirmNotice,
     saveObjectives,
     saveContacts,
+    setLocation,
     agreeStartDate,
     managerConfirmDate,
     completeVetting,

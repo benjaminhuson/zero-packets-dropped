@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { LINE_MANAGER, NEW_STARTER_ROLE } from '../data';
+import { BUDDY, BUDDY_EMAIL, LINE_MANAGER, MANAGER_EMAIL, NEW_STARTER_ROLE } from '../data';
 import { APPROACHING_DAYS, STAGES, JOB_FAMILY, type Step } from '../stages';
 import { hasStarted, unlockedStage, type Details, type Flow, type JourneyState } from '../store';
 import { Horse } from './Horse';
 import { freeSlots, type Slot } from '../calendar';
+import { LOCATIONS } from '../locations';
 import { ValuesExplorer } from './ValuesExplorer';
 
 export interface Actions {
@@ -11,11 +12,12 @@ export interface Actions {
   dismissCelebrate: () => void;
   toggleStep: (id: string) => void;
   saveDetails: (d: Details) => void;
-  setDevice: (d: 'mac' | 'windows') => void;
+  setDevice: (d: 'standard-mac' | 'developer-mac' | 'windows') => void;
   uploadPhoto: (name: string) => void;
   confirmNotice: () => void;
   saveObjectives: (text: string) => void;
   saveContacts: (text: string) => void;
+  setLocation: (l: 'leeds' | 'london' | 'virtual') => void;
   agreeStartDate: (date: string) => void;
   managerConfirmDate: () => void;
   completeVetting: () => void;
@@ -35,7 +37,7 @@ interface Props extends Actions {
   state: JourneyState;
 }
 
-const MANAGER = LINE_MANAGER.name.split(' ')[0];
+const MANAGER = 'your manager';
 
 // A working day, `days` ahead of today, as YYYY-MM-DD
 function nextWorkingDate(days = 1, from = new Date()): string {
@@ -66,7 +68,7 @@ function stepDone(step: Step, f: Flow): boolean {
   }
 }
 
-function StepRow({ step, flow, actions, locked, prereqTitle }: { step: Step; flow: Flow; actions: Actions; locked: boolean; prereqTitle?: string }) {
+function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step: Step; flow: Flow; actions: Actions; locked: boolean; prereqTitle?: string; firstName: string }) {
   const done = stepDone(step, flow);
   if (locked) {
     return (
@@ -87,6 +89,7 @@ function StepRow({ step, flow, actions, locked, prereqTitle }: { step: Step; flo
   const [details, setDetails] = useState<Details>(flow.details ?? { preferredName: '', mobile: '', personalEmail: '' });
   const [date, setDate] = useState(flow.startDate ?? nextWorkingDate(DEFAULT_START_DAYS));
   const [topic, setTopic] = useState('');
+  const [induction, setInduction] = useState('');
 
   let control: React.ReactNode = null;
 
@@ -123,11 +126,19 @@ function StepRow({ step, flow, actions, locked, prereqTitle }: { step: Step; flo
       break;
     case 'values':
       control = (
-        <ValuesExplorer
-          onAllViewed={() => {
-            if (!flow.stepsDone.includes(step.id)) actions.toggleStep(step.id);
-          }}
-        />
+        <>
+          <ValuesExplorer
+            onAllViewed={() => {
+              if (!flow.stepsDone.includes(step.id)) actions.toggleStep(step.id);
+            }}
+          />
+          {(step.sections ?? []).map((sec) => (
+            <details key={sec.title} className="fact">
+              <summary>{sec.title}</summary>
+              <p className="article-text">{sec.text}</p>
+            </details>
+          ))}
+        </>
       );
       break;
     case 'date':
@@ -142,8 +153,13 @@ function StepRow({ step, flow, actions, locked, prereqTitle }: { step: Step; flo
           </button>
           {flow.starterAgreedDate && (
             <p className="status">
-              {flow.managerAgreedDate ? `Agreed by you and ${MANAGER}.` : `Waiting for ${MANAGER} to confirm.`}
+              {flow.managerAgreedDate ? 'Agreed by you and your manager.' : 'Waiting for your manager to confirm.'}
             </p>
+          )}
+          {flow.starterAgreedDate && !flow.managerAgreedDate && (
+            <button className="btn outline demo-confirm" onClick={actions.managerConfirmDate}>
+              Demo: your manager confirms this date
+            </button>
           )}
         </div>
       );
@@ -162,26 +178,45 @@ function StepRow({ step, flow, actions, locked, prereqTitle }: { step: Step; flo
           >
             Ask {MANAGER} for a check-in
           </button>
-          <p className="fine">{MANAGER} gets a one-click Teams meeting invite.</p>
+          <p className="fine">Your manager gets a one-click Teams meeting invite.</p>
         </div>
       );
       break;
-    case 'device':
+    case 'device': {
+      const choices: { id: 'standard-mac' | 'developer-mac' | 'windows'; label: string; why: string }[] = [
+        { id: 'standard-mac', label: 'Standard Mac', why: 'For everyday work: email, Teams, office apps, browsing and general tools. The right choice if you are not writing or running code day to day.' },
+        { id: 'developer-mac', label: 'Developer Mac', why: 'For engineers who write and run code on their laptop. It comes set up for building software: local development environments, containers, command-line tools and Apple developer tools for building iOS and macOS apps. Choose this if you are a coder, or your role builds, tests or deploys software.' },
+        { id: 'windows', label: 'Windows laptop', why: 'A standard Windows laptop, for everyday work and Windows-based tools. Most colleagues use one, and it suits roles that do not need a Mac.' },
+      ];
+      const picked = choices.find((c) => c.id === flow.device);
       control = (
-        <div className="choice">
-          {(['mac', 'windows'] as const).map((d) => (
-            <button key={d} className={flow.device === d ? 'choice-btn on' : 'choice-btn'} onClick={() => actions.setDevice(d)} aria-pressed={flow.device === d}>
-              {d === 'mac' ? 'Mac' : 'Windows'}
-            </button>
-          ))}
+        <div className="device-picker">
+          <div className="choice">
+            {choices.map((c) => (
+              <button key={c.id} className={flow.device === c.id ? 'choice-btn on' : 'choice-btn'} onClick={() => actions.setDevice(c.id)} aria-pressed={flow.device === c.id}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <p className="device-why">{picked ? picked.why : 'Pick one to see why it suits certain roles.'}</p>
         </div>
       );
       break;
+    }
     case 'photo':
       control = (
         <div className="step-form">
           <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && actions.uploadPhoto(e.target.files[0].name)} />
-          {flow.photoName && <p className="status">Uploaded: {flow.photoName}</p>}
+          {!flow.photoName && (
+            <button className="btn outline demo-confirm" onClick={() => actions.uploadPhoto('sample-building-pass-photo.jpg')}>
+              Demo: use a sample photo
+            </button>
+          )}
+          {flow.photoName && (
+            <p className="status">
+              Uploaded: {flow.photoName}. Your photo has been sent for printing, and your building pass will be posted to your home address once it is ready.
+            </p>
+          )}
         </div>
       );
       break;
@@ -190,7 +225,7 @@ function StepRow({ step, flow, actions, locked, prereqTitle }: { step: Step; flo
         <textarea
           className="step-text"
           rows={3}
-          placeholder="For example: deliver my first feature, and get my first code review done."
+          placeholder="For example: deliver my first feature with my team, and feel confident with our release process."
           value={objectives}
           onChange={(e) => setObjectives(e.target.value)}
           onBlur={() => actions.saveObjectives(objectives)}
@@ -210,17 +245,191 @@ function StepRow({ step, flow, actions, locked, prereqTitle }: { step: Step; flo
       );
       break;
     case 'upn':
-      control = <p className="status">{flow.upn ? `Account set up: ${flow.upn}` : `Waiting for ${MANAGER} to add your UPN in Microsoft Entra ID.`}</p>;
+      control = <p className="status">{flow.upn ? `Your work email address is set up: ${flow.upn}` : 'Waiting for your manager to set up your work email address.'}</p>;
       break;
-    case 'laptop':
-      control = <p className="status">{flow.laptopSent ? 'Dispatched. Your welcome pack is on its way.' : 'Waiting for IT to dispatch your laptop.'}</p>;
+    case 'laptop': {
+      const stages = ['Ordered', 'Dispatched with DPD', 'Out for delivery', 'Delivered'];
+      const current = flow.laptopSent ? 1 : 0;
+      control = (
+        <div className="parcel">
+          <ol className="parcel-track" aria-label="Laptop delivery progress">
+            {stages.map((label, i) => (
+              <li key={label} className={i < current ? 'done' : i === current ? 'now' : ''}>
+                <span className="parcel-dot" aria-hidden="true" />
+                <span>{label}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="status">
+            {flow.laptopSent
+              ? 'Your laptop and welcome pack are on their way. Delivery is usually a few working days after dispatch.'
+              : 'Waiting for IT to dispatch your laptop. You will see the tracking details here once it has gone.'}
+          </p>
+          {flow.laptopSent && (
+            <a className="fact-link" href="https://www.dpd.co.uk/" target="_blank" rel="noopener noreferrer">
+              Track your parcel with DPD ↗
+            </a>
+          )}
+          <p className="fine">Tracking number: sent by IT once your laptop is dispatched.</p>
+        </div>
+      );
       break;
+    }
+    case 'startday': {
+      const loc = flow.location ? LOCATIONS[flow.location] : null;
+      const dateText = flow.startDate
+        ? new Date(flow.startDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+        : 'Not agreed yet. Agree a date in Stage 2.';
+      control = (
+        <div className="startday">
+          <p className="startday-date"><span>Start date</span>{dateText}</p>
+          <p className="fine">Where you will work (agreed with your manager):</p>
+          <div className="choice">
+            {(Object.keys(LOCATIONS) as (keyof typeof LOCATIONS)[]).map((key) => (
+              <button key={key} className={flow.location === key ? 'choice-btn on' : 'choice-btn'} onClick={() => actions.setLocation(key)} aria-pressed={flow.location === key}>
+                {LOCATIONS[key].label}
+              </button>
+            ))}
+          </div>
+          {!loc && <p className="status">Choose where you will work to see your first-day details.</p>}
+          {loc && (
+            <>
+              <details className="fact" open>
+                <summary>Where you will be</summary>
+                <p className="article-text">{loc.address}</p>
+              </details>
+              <details className="fact" open>
+                <summary>How to get there</summary>
+                <p className="article-text">{loc.getThere}</p>
+              </details>
+              <div className="day-plan">
+                <p className="day-plan-title">Your first day, step by step</p>
+                <ol className="day-steps">
+                  {loc.firstDaySteps.map((row) => (
+                    <li key={row.time + row.text}>
+                      <span className="day-time">{row.time}</span>
+                      <span>{row.text}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <div className="contacts-card">
+                <p className="day-plan-title">Useful contacts</p>
+                <dl className="contact-list">
+                  <div><dt>Reception</dt><dd>{loc.reception}</dd></div>
+                  <div><dt>Your manager</dt><dd>{LINE_MANAGER.name}, {LINE_MANAGER.role}<br /><a href={`mailto:${MANAGER_EMAIL}`}>{MANAGER_EMAIL}</a></dd></div>
+                  <div><dt>Your buddy</dt><dd>{BUDDY.name}, {BUDDY.role}<br /><a href={`mailto:${BUDDY_EMAIL}`}>{BUDDY_EMAIL}</a></dd></div>
+                  <div><dt>IT helpdesk (IT@LBG)</dt><dd>Find it on the Lloyds intranet, or use the chat button for help.</dd></div>
+                </dl>
+              </div>
+              <details className="fact">
+                <summary>What to expect</summary>
+                <p className="article-text">{loc.expect}</p>
+              </details>
+            </>
+          )}
+        </div>
+      );
+      break;
+    }
+    case 'induction': {
+      // Next few monthly sessions (second Thursday, 14:00). Placeholder schedule until the induction team confirms.
+      const sessions: { value: string; label: string }[] = [];
+      const d = new Date();
+      for (let m = 0; sessions.length < 3 && m < 6; m++) {
+        const first = new Date(d.getFullYear(), d.getMonth() + m, 1);
+        const offset = (4 - first.getDay() + 7) % 7; // first Thursday
+        const second = new Date(first.getFullYear(), first.getMonth(), 1 + offset + 7, 14, 0);
+        if (second.getTime() > d.getTime()) {
+          sessions.push({ value: second.toISOString(), label: second.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + ', 14:00' });
+        }
+      }
+      const booked = flow.stepsDone.includes(step.id);
+      control = (
+        <div className="induction">
+          <details className="fact" open>
+            <summary>What it is</summary>
+            <p className="article-text">A monthly virtual induction for new starters, run as a Microsoft Teams immersive event.</p>
+          </details>
+          <details className="fact" open>
+            <summary>Why join</summary>
+            <p className="article-text">It is a fun, interactive icebreaker. You create your own avatar, then mingle with other new starters from across the bank and find out who else has just joined.</p>
+          </details>
+          <details className="fact">
+            <summary>How it works</summary>
+            <p className="article-text">Pick a session below. You will get a Teams invite, and you can join from your laptop or phone on the day.</p>
+          </details>
+          {booked ? (
+            <p className="status">You are booked on the induction session. We have sent you the Teams invite.</p>
+          ) : (
+            <div className="step-form">
+              <fieldset className="slot-picker">
+                <legend>Choose a session</legend>
+                {sessions.map((se) => (
+                  <label key={se.value} className="slot-option">
+                    <input type="radio" name={`induction-${step.id}`} checked={induction === se.value} onChange={() => setInduction(se.value)} />
+                    <span>{se.label}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <button className="btn primary" disabled={!induction} onClick={() => actions.toggleStep(step.id)}>
+                Book my place
+              </button>
+            </div>
+          )}
+        </div>
+      );
+      break;
+    }
+    case 'guide': {
+      const device = flow.device;
+      const deviceSteps = device && step.guides ? step.guides[device] ?? [] : [];
+      control = (
+        <>
+          {!device && step.guides && <p className="status">Choose your device in Stage 3 and the steps for it will appear here.</p>}
+          {deviceSteps.map((sec) => (
+            <details key={sec.title} className="fact" open>
+              <summary>{sec.title}</summary>
+              <p className="article-text">{sec.text}</p>
+            </details>
+          ))}
+          {(step.sections ?? []).map((sec) => (
+            <details key={sec.title} className="fact">
+              <summary>{sec.title}</summary>
+              <p className="article-text">{sec.text}</p>
+              {sec.href && (
+                <a className="fact-link" href={sec.href} target="_blank" rel="noopener noreferrer">
+                  Open the IT@LBG knowledge article centre ↗
+                </a>
+              )}
+              {sec.title === 'Ask Cancara for help' && actions.onOpenChat && (
+                <button className="btn outline demo-confirm" onClick={actions.onOpenChat}>
+                  Ask Cancara for help
+                </button>
+              )}
+            </details>
+          ))}
+        </>
+      );
+      break;
+    }
     case 'article':
       control = (
         <details className="article" open={step.openByDefault}>
           <summary>{step.title}</summary>
           {(step.paragraphs ?? []).map((para) => (
             <p key={para} className="article-text">{para}</p>
+          ))}
+          {(step.sections ?? []).map((sec) => (
+            <details key={sec.title} className="fact">
+              <summary>{sec.title}</summary>
+              <p className="article-text">{sec.text}</p>
+              {sec.href && (
+                <a className="fact-link" href={sec.href} target="_blank" rel="noopener noreferrer">
+                  Open the official benefits page ↗
+                </a>
+              )}
+            </details>
           ))}
           <label className="step-check">
             <input type="checkbox" checked={flow.stepsDone.includes(step.id)} onChange={() => actions.toggleStep(step.id)} />
@@ -245,6 +454,12 @@ function StepRow({ step, flow, actions, locked, prereqTitle }: { step: Step; flo
         </div>
       </div>
       {step.body && <p className="step-body">{step.body}</p>}
+      {step.id === 's0-accept' && flow.accepted && (
+        <div className="congrats-inline" role="status">
+          <p className="congrats-title">Congratulations, {firstName}!</p>
+          <p>You have said yes to the job. We are delighted to welcome you to Lloyds.</p>
+        </div>
+      )}
       {control}
     </li>
   );
@@ -278,7 +493,7 @@ export function StageJourney(props: Props) {
     setFacing(horsePos > lastPos.current ? 1 : -1);
     lastPos.current = horsePos;
     setWalking(true);
-    const t = window.setTimeout(() => setWalking(false), 900);
+    const t = window.setTimeout(() => setWalking(false), 2600);
     return () => window.clearTimeout(t);
   }, [horsePos]);
 
@@ -373,6 +588,8 @@ export function StageJourney(props: Props) {
         </div>
         <div className="header-right">
           <span className="hello">Hi {state.firstName}</span>
+          <span className="people-chip">Manager: {LINE_MANAGER.name}</span>
+          <span className="people-chip">Buddy: {BUDDY.name}</span>
         </div>
       </header>
 
@@ -413,8 +630,8 @@ export function StageJourney(props: Props) {
                     return (
                       <li key={s.id}>
                         <button className={cls} disabled={!isUnlocked} onClick={() => onNode(s.id)} aria-current={s.id === state.viewStage ? 'step' : undefined}>
-                          <span className="dot" aria-hidden="true">{isDone ? '✓' : ''}</span>
-                          <span className="node-label">Stage {s.id}<br />{s.name}</span>
+                          <span className="dot" aria-hidden="true" />
+                          <span className="node-label">{isUnlocked ? <>Stage {s.id}<br />{s.name}</> : <>Stage {s.id}<br />Locked</>}</span>
                         </button>
                       </li>
                     );
@@ -475,7 +692,7 @@ export function StageJourney(props: Props) {
 
             {state.viewStage <= unlocked ? (
               <ol className="steps slide">
-                <StepRow key={current.id} step={current} flow={f} actions={props} locked={currentLocked} prereqTitle={currentPrereq?.title} />
+                <StepRow key={current.id} step={current} flow={f} actions={props} locked={currentLocked} prereqTitle={currentPrereq?.title} firstName={state.firstName} />
               </ol>
             ) : (
               <p className="fine">This stage is locked until the previous trigger is met.</p>
@@ -493,6 +710,11 @@ export function StageJourney(props: Props) {
                 <p className="eyebrow">Next stage unlocks when</p>
                 <p>{viewed.trigger}.</p>
                 {viewed.id === 4 && <p className="fine">Stage 5 also opens {APPROACHING_DAYS} days before your start date.</p>}
+                {viewed.id === 4 && !f.demoApproaching && (
+                  <button className="btn outline demo-confirm" onClick={props.simulateApproaching}>
+                    Demo: your start date is approaching
+                  </button>
+                )}
               </div>
             )}
 
@@ -515,33 +737,21 @@ export function StageJourney(props: Props) {
             )}
           </div>
 
-          <details className="stage-checklist" open>
-            <summary>Your checklist</summary>
-            {STAGES.map((st) => {
-              const open = st.id <= unlocked;
-              return (
-                <div key={st.id} className={`cl-stage${open ? '' : ' cl-locked'}`}>
-                  <p className="cl-title">
-                    Stage {st.id}: {st.name}
-                    {!open && <span className="cl-tag"> · locked</span>}
-                  </p>
-                  <ul>
-                    {st.steps.map((step, i) => {
-                      const done = stepDone(step, f);
-                      return (
-                        <li key={step.id}>
-                          <button className="cl-row" disabled={!open} onClick={() => goStage(st.id, i)}>
-                            <span className={`cl-box${done ? ' on' : ''}`} aria-hidden="true">{done ? '✓' : ''}</span>
-                            <span className={done ? 'cl-text done' : 'cl-text'}>{step.title}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              );
-            })}
-          </details>
+          {unlocked < STAGES.length - 1 && (
+            <details className="next-help">
+              <summary>What do I need to do to unlock Stage {unlocked + 1}?</summary>
+              <p className="next-trigger">{STAGES[unlocked].trigger}.</p>
+              <ul>
+                {STAGES[unlocked].steps.filter((st) => !stepDone(st, f)).map((st) => (
+                  <li key={st.id}>
+                    <span className="cl-box" aria-hidden="true" />
+                    <span>{st.title}</span>
+                  </li>
+                ))}
+              </ul>
+              {STAGES[unlocked].steps.every((st) => stepDone(st, f)) && <p className="ok">Nothing left to do here.</p>}
+            </details>
+          )}
 
         </main>
 
