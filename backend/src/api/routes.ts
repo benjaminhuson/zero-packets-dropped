@@ -16,12 +16,14 @@ export interface RequestContext {
   body: unknown;
   caller: Caller | null;
   adminToken: string | null;
+  authorization: string | null;
 }
 
 export interface HandlerResult {
   status: number;
   body: unknown;
   headers?: Record<string, string | string[]>;
+  file?: { contentType: string; data: Buffer; filename: string }; // binary download instead of JSON
 }
 
 export type Handler = (ctx: RequestContext) => Promise<HandlerResult>;
@@ -35,6 +37,14 @@ export interface Deps {
   secureCookies: boolean;
   devAuth: boolean; // AUTH=dev only: enables the /api/dev/* stand-ins for Microsoft sign-in
   clock: { now(): Date };
+  teams: TeamsRoutes | null; // null when TEAMS=mock
+}
+
+// Teams wiring, provided by server.ts when TEAMS=graph.
+export interface TeamsRoutes {
+  handleBotRequest(authorization: string | null, activity: unknown): Promise<void>;
+  appPackage(): Promise<Buffer>;
+  tabLink: string;
 }
 
 // The signed-in new colleague. Managers and buddies get 403 on starter-only routes.
@@ -90,6 +100,21 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
       if (!deps.devAuth) throw new HttpError(404, 'Not found');
       const upn = str(c.body, 'upn').trim().toLowerCase();
       return { status: 200, body: { ok: true }, headers: { 'set-cookie': `${DEV_UPN_COOKIE}=${encodeURIComponent(upn)}; Path=/; HttpOnly; SameSite=Lax` } };
+    }),
+
+    // ---- Teams ----
+    // The Bot Connector posts Teams activities here. Authenticated by the bot's own JWT (see teams/bot/auth.ts);
+    // App Service authentication skips this path (excludedPaths in infra/main.bicep).
+    r('POST', '/api/messages', async (c) => {
+      if (!deps.teams) throw new HttpError(404, 'Teams is not enabled');
+      await deps.teams.handleBotRequest(c.authorization, c.body);
+      return { status: 200, body: {} };
+    }),
+    r('GET', '/api/teams', async () => ({ status: 200, body: { enabled: !!deps.teams, tabLink: deps.teams?.tabLink ?? null } })),
+    r('GET', '/api/teams/app-package', async (c) => {
+      PeopleService.staff(c.caller); // signed-in managers and buddies only
+      if (!deps.teams) throw new HttpError(404, 'Teams is not enabled');
+      return { status: 200, body: null, file: { contentType: 'application/zip', data: await deps.teams.appPackage(), filename: 'stride-teams-app.zip' } };
     }),
 
     // ---- New colleague: saved app state and the shared thread ----

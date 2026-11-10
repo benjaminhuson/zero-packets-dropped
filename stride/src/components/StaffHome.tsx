@@ -1,9 +1,29 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Horse } from './Horse';
 import { NotesThread } from './NotesThread';
-import { api, MICROSOFT_LOGOUT, type StarterCard, type StarterView } from '../api';
+import { api, MICROSOFT_LOGOUT, TEAMS_APP_PACKAGE, type StarterCard, type StarterView } from '../api';
 
-type Props = { name: string; upn: string };
+type Props = { name: string; upn: string; inTeams?: boolean };
+
+// How to add Stride to Teams. Shown in the browser when Teams is enabled on this deployment.
+function AddToTeams() {
+  const [teams, setTeams] = useState<{ enabled: boolean; tabLink: string | null } | null>(null);
+  useEffect(() => { void api.teams().then(setTeams).catch(() => undefined); }, []);
+  if (!teams?.enabled) return null;
+  return (
+    <section className="card teams-card">
+      <h2>Stride in Microsoft Teams</h2>
+      <p className="fine">Get Stride notifications in Teams and open Stride as an app there.</p>
+      <ol className="fine">
+        <li><a href={TEAMS_APP_PACKAGE} download>Download the Stride Teams app</a> (a .zip file; don't unzip it).</li>
+        <li>In Teams, go to your team, then <strong>Manage team → Apps → Upload an app → Upload a custom app</strong>, and choose the file.</li>
+        <li>Everyone in the team can now get messages from Stride.</li>
+        <li>To open Stride as an app in Teams, each person uploads the same file for themselves: <strong>Apps → Manage your apps → Upload an app → Upload a custom app</strong>.</li>
+      </ol>
+      {teams.tabLink && <a className="linkish" href={teams.tabLink} target="_blank" rel="noreferrer">Open Stride in Teams</a>}
+    </section>
+  );
+}
 
 function Progress({ card }: { card: StarterCard }) {
   if (card.invitePending) return <span className="pill">Invite not used yet</span>;
@@ -17,7 +37,7 @@ function Progress({ card }: { card: StarterCard }) {
 }
 
 // Home for line managers and buddies (Microsoft sign-in).
-export function StaffHome({ name, upn }: Props) {
+export function StaffHome({ name, upn, inTeams = false }: Props) {
   const [cards, setCards] = useState<StarterCard[]>([]);
   const [selected, setSelected] = useState<StarterView | null>(null);
   const [invite, setInvite] = useState<{ name: string; code: string; expires: string } | null>(null);
@@ -73,11 +93,13 @@ export function StaffHome({ name, upn }: Props) {
         </div>
         <div className="staff-me">
           <span className="fine">{upn}</span>
-          <a className="linkish" href={MICROSOFT_LOGOUT}>Sign out</a>
+          {!inTeams && <a className="linkish" href={MICROSOFT_LOGOUT}>Sign out</a>}
         </div>
       </header>
 
       {error && <p className="signin-error" role="alert">{error}</p>}
+
+      {!inTeams && <AddToTeams />}
 
       {invite && (
         <section className="card invite-code" role="status">

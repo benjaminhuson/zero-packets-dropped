@@ -17,6 +17,11 @@ set -a; source "$ROOT/infra/.env"; set +a
 LOCATION="${LOCATION:-uksouth}"
 APP_SKU="${APP_SKU:-B1}"
 [[ "$APP_SKU" =~ ^(F1|B1|S1|P0v3)$ ]] || { echo "APP_SKU must be F1, B1, S1 or P0v3"; exit 1; }
+ENABLE_TEAMS="${ENABLE_TEAMS:-true}"   # Stride bot + Teams channel
+MEETINGS="${MEETINGS:-link}"           # link, or graph once admin consent for Calendars.ReadWrite is granted
+BOT_LOCATION="${BOT_LOCATION:-global}"
+[[ "$ENABLE_TEAMS" =~ ^(true|false)$ ]] || { echo "ENABLE_TEAMS must be true or false"; exit 1; }
+[[ "$MEETINGS" =~ ^(link|graph)$ ]] || { echo "MEETINGS must be link or graph"; exit 1; }
 [[ "$TEAM_NUMBER" =~ ^[0-9]{2}$ ]] || { echo "TEAM_NUMBER must be two digits, e.g. 03"; exit 1; }
 [[ "$LOCATION" == "uksouth" || "$LOCATION" == "italynorth" ]] || { echo "LOCATION must be uksouth or italynorth"; exit 1; }
 
@@ -40,9 +45,67 @@ deploy_bicep() { # $1 = client id (may be empty)
 
   az deployment group create -g "$RESOURCE_GROUP" -n stride -f "$ROOT/infra/main.bicep" -o none \
     -p teamNumber="$TEAM_NUMBER" location="$LOCATION" appServiceSku="$APP_SKU" entraClientId="$1" \
+       enableTeams="$ENABLE_TEAMS" meetings="$MEETINGS" botLocation="$BOT_LOCATION" \
        sessionSecret="$session" adminToken="$admin" deployerPrincipalId="$me"
   az deployment group show -g "$RESOURCE_GROUP" -n stride --query properties.outputs.webAppName.value -o tsv > "$STATE/webapp"
   az deployment group show -g "$RESOURCE_GROUP" -n stride --query properties.outputs.hostName.value -o tsv > "$STATE/host"
+  az deployment group show -g "$RESOURCE_GROUP" -n stride --query properties.outputs.botPrincipalId.value -o tsv > "$STATE/bot-principal"
+}
+
+GRAPH_APP_ID="00000003-0000-0000-c000-000000000000" # Microsoft Graph
+TEAMS_CLIENT_IDS=("1fec8e78-bce4-4aaf-ab1b-5451cc387264" "5e3ce6c0-2b1f-4285-8d4b-75ee78787346") # Teams desktop/mobile, Teams web
+
+# Teams tab single sign-on: expose an API (api://<host>/<client id>) with an access_as_user scope, and let the
+# Teams clients ask for it without a consent prompt. v2 access tokens, so App Service auth accepts them.
+configure_teams_sso() { # $1 = client id
+  local id="$1" host; host="$(cat "$STATE/host")"
+  local object; object="$(az ad app show --id "$id" --query id -o tsv)"
+  local scope; scope="$(az ad app show --id "$id" --query "api.oauth2PermissionScopes[?value=='access_as_user'].id | [0]" -o tsv)"
+  [ -n "$scope" ] || scope="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+  local url="https://graph.microsoft.com/v1.0/applications/$object"
+  if ! az rest --method PATCH --url "$url" --headers "Content-Type=application/json" --body "{
+      \"identifierUris\": [\"api://$host/$id\"],
+      \"api\": {
+        \"requestedAccessTokenVersion\": 2,
+        \"oauth2PermissionScopes\": [{
+          \"id\": \"$scope\", \"value\": \"access_as_user\", \"type\": \"User\", \"isEnabled\": true,
+          \"adminConsentDisplayName\": \"Use Stride as you\", \"adminConsentDescription\": \"Lets Teams sign you in to Stride.\",
+          \"userConsentDisplayName\": \"Use Stride as you\", \"userConsentDescription\": \"Lets Teams sign you in to Stride.\"
+        }]
+      }
+    }" -o none; then
+    echo "  ! Could not set up Teams sign-in on the app registration. Stride works in the browser; the Teams tab will not."
+    return 0
+  fi
+  local pre=""
+  for client in "${TEAMS_CLIENT_IDS[@]}"; do
+    pre="$pre{\"appId\": \"$client\", \"delegatedPermissionIds\": [\"$scope\"]},"
+  done
+  az rest --method PATCH --url "$url" --headers "Content-Type=application/json" \
+    --body "{\"api\": {\"preAuthorizedApplications\": [${pre%,}]}}" -o none \
+    || echo "  ! Could not pre-authorise Teams; users may see a consent prompt in the Teams tab."
+}
+
+# Meetings (MEETINGS=graph): the app signs in to Graph as teamNN-stride using a federated credential that trusts the
+# bot's managed identity (no secret), with the Calendars.ReadWrite application permission. An admin must consent.
+configure_graph_access() { # $1 = client id
+  local id="$1" principal; principal="$(cat "$STATE/bot-principal" 2>/dev/null || true)"
+  [ -n "$principal" ] || return 0
+  local tenant; tenant="$(az account show --query tenantId -o tsv)"
+  if [ "$(az ad app federated-credential list --id "$id" --query "[?name=='stride-bot-identity'] | length(@)" -o tsv)" = "0" ]; then
+    az ad app federated-credential create --id "$id" -o none --parameters "{
+      \"name\": \"stride-bot-identity\",
+      \"issuer\": \"https://login.microsoftonline.com/$tenant/v2.0\",
+      \"subject\": \"$principal\",
+      \"audiences\": [\"api://AzureADTokenExchange\"]
+    }" || echo "  ! Could not add the federated credential; Graph meetings will fall back to links."
+  fi
+  if [ "$MEETINGS" = "graph" ]; then
+    local role; role="$(az ad sp show --id "$GRAPH_APP_ID" --query "appRoles[?value=='Calendars.ReadWrite'].id | [0]" -o tsv)"
+    az ad app permission add --id "$id" --api "$GRAPH_APP_ID" --api-permissions "$role=Role" -o none 2>/dev/null || true
+    echo "  -> Ask the organisers to grant admin consent for $APP_REG_NAME (Microsoft Graph: Calendars.ReadWrite, application)."
+    echo "     Until then, check-ins fall back to a pre-filled Teams meeting link."
+  fi
 }
 
 ensure_app_registration() { # prints the client id
@@ -65,7 +128,11 @@ infra() {
   deploy_bicep "$existing"
   echo "2/3 App registration $APP_REG_NAME..."
   local id; id="$(ensure_app_registration)"
-  echo "3/3 Microsoft sign-in..."
+  if [ "$ENABLE_TEAMS" = "true" ]; then
+    configure_teams_sso "$id"
+    configure_graph_access "$id"
+  fi
+  echo "3/3 Microsoft sign-in and Teams..."
   deploy_bicep "$id"
   echo "Infra ready: https://$(cat "$STATE/host")"
 }
@@ -78,7 +145,7 @@ app() {
   (cd "$ROOT/stride" && npm ci --no-audit --no-fund && npm run build)
   echo "Building backend..."
   (cd "$ROOT/backend" && npm ci --no-audit --no-fund && npm run build)
-  cp -r "$ROOT/backend/dist" "$ROOT/backend/package.json" "$ROOT/backend/package-lock.json" "$pkg/"
+  cp -r "$ROOT/backend/dist" "$ROOT/backend/assets" "$ROOT/backend/package.json" "$ROOT/backend/package-lock.json" "$pkg/"
   cp -r "$ROOT/stride/dist" "$pkg/public"
   (cd "$pkg" && npm ci --omit=dev --no-audit --no-fund && zip -qr "$zip" .)
   echo "Uploading..."

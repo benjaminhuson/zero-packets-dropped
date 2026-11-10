@@ -5,21 +5,49 @@ import { SignIn } from './components/SignIn';
 import { StaffHome } from './components/StaffHome';
 import { NotesThread } from './components/NotesThread';
 import { useJourney } from './store';
-import { api, MICROSOFT_LOGIN, MICROSOFT_LOGOUT, type Me, type Note } from './api';
+import { api, setBearerTokens, MICROSOFT_LOGIN, MICROSOFT_LOGOUT, type Me, type Note } from './api';
+import { inTeams, notifyTeamsReady, teamsToken } from './teams';
 import { useCallback, useEffect, useState } from 'react';
 
-type Session = Me | 'signed-out' | 'offline' | 'loading';
+type Session = Me | 'signed-out' | 'offline' | 'loading' | { kind: 'teams-error'; message: string };
+
+const IN_TEAMS = inTeams();
 
 export default function App() {
   const [session, setSession] = useState<Session>('loading');
-  const check = useCallback(() => { void api.me().then(setSession); }, []);
+  const check = useCallback(() => {
+    if (!IN_TEAMS) return void api.me().then(setSession);
+    // Inside Teams: sign in silently with the Teams token.
+    setBearerTokens(teamsToken);
+    void teamsToken()
+      .then(() => api.me())
+      .then((me) => {
+        void notifyTeamsReady().catch(() => undefined);
+        setSession(me === 'signed-out' ? { kind: 'teams-error', message: 'Teams signed you in, but Stride did not accept it.' } : me);
+      })
+      .catch((err: unknown) => setSession({ kind: 'teams-error', message: err instanceof Error ? err.message : String(err) }));
+  }, []);
   useEffect(check, [check]);
 
   if (session === 'loading') return null;
+  if (typeof session === 'object' && session.kind === 'teams-error') return <TeamsSignInProblem message={session.message} />;
   if (session === 'signed-out') return <SignIn onSignedIn={check} />;
   if (session === 'offline') return <Journey />; // no API: prototype mode, this browser only
-  if (session.kind === 'staff') return <StaffHome name={session.name} upn={session.upn} />;
+  if (session.kind === 'staff') return <StaffHome name={session.name} upn={session.upn} inTeams={IN_TEAMS} />;
   return <Journey me={session} onSignedOut={check} />;
+}
+
+function TeamsSignInProblem({ message }: { message: string }) {
+  return (
+    <main className="entry">
+      <section className="entry-card">
+        <h1>Stride could not sign you in through Teams</h1>
+        <p className="lead">You can still use Stride in your browser. New colleagues without a work account always use the browser.</p>
+        <a className="btn primary" href={window.location.origin} target="_blank" rel="noreferrer">Open Stride in the browser</a>
+        <p className="fine">Details: {message}</p>
+      </section>
+    </main>
+  );
 }
 
 // The signed-in new colleague, or the offline prototype when `me` is missing.
@@ -40,7 +68,7 @@ function SignedInBar({ me, onSignedOut }: { me: Extract<Me, { kind: 'starter' }>
       <div className="signed-in-bar">
         <span>Signed in as {me.name}</span>
         <button className="linkish" onClick={() => setOpen(!open)}>Team thread ({notes.length})</button>
-        <button className="linkish" onClick={signOut}>Sign out</button>
+        {!IN_TEAMS && <button className="linkish" onClick={signOut}>Sign out</button>}
       </div>
       {me.entraLinkPending && (
         <p className="signed-in-note" role="status">

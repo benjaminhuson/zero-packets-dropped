@@ -112,6 +112,27 @@ export interface Note {
   sentAt: string;
 }
 
+// ---- Teams ------------------------------------------------------------------------
+// How the Stride bot reaches a person in Teams. Saved when the Stride Teams app is added to a team or
+// opened by the user; the bot can then message them one-to-one.
+export interface TeamsContact {
+  upn: string; // lowercased
+  aadObjectId: string;
+  teamsUserId: string; // "29:..." id used by the Bot Connector
+  name: string;
+  serviceUrl: string;
+  tenantId: string;
+  conversationId: string | null; // the one-to-one chat with the bot, once created
+  updatedAt: string;
+}
+
+// A Teams message with an optional button.
+export interface TeamsNotice {
+  title: string;
+  text: string;
+  link?: { label: string; url: string };
+}
+
 // ---- Gateways (interfaces each section implements) --------------------------
 
 // Section 2: persistence
@@ -136,14 +157,20 @@ export interface Store {
   saveStarterState(state: StarterState): Promise<void>;
   appendNote(note: Note): Promise<void>;
   listNotes(starterId: UserId): Promise<Note[]>; // oldest first
+  getTeamsContact(upn: string): Promise<TeamsContact | null>;
+  saveTeamsContact(contact: TeamsContact): Promise<void>;
 }
 
-// Section 3: Teams and Microsoft Graph
+// Section 3: Teams and Microsoft Graph. userId is always the new colleague's id; the gateway finds the
+// right person (the colleague, their manager or their buddy). Delivery is best effort: someone who is
+// not in Teams yet is skipped, and a Teams failure never fails the Stride action.
 export interface TeamsGateway {
-  sendToStarter(userId: UserId, text: string): Promise<void>;
-  sendToManager(userId: UserId, text: string): Promise<void>;
-  // Creates a Teams meeting invitation to the line manager. Returns a join link when available.
-  createCheckInMeeting(userId: UserId, when: { date: string; time: string }, topic: string): Promise<{ joinUrl: string | null }>;
+  sendToStarter(userId: UserId, text: string | TeamsNotice): Promise<void>;
+  sendToManager(userId: UserId, text: string | TeamsNotice): Promise<void>;
+  sendToBuddy(userId: UserId, text: string | TeamsNotice): Promise<void>;
+  // A Teams meeting with the line manager. joinUrl when the meeting was created (Graph); otherwise
+  // scheduleUrl opens a pre-filled "new meeting" form in Teams for the manager to send.
+  createCheckInMeeting(userId: UserId, when: { date: string; time: string }, topic: string): Promise<{ joinUrl: string | null; scheduleUrl?: string }>;
 }
 
 // Section 4: Cancara (AI buddy)

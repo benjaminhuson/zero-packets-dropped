@@ -44,25 +44,30 @@ interface EntraUser {
   name: string;
 }
 
-// Easy Auth: X-MS-CLIENT-PRINCIPAL-NAME is the UPN; the full claims are base64 JSON in X-MS-CLIENT-PRINCIPAL.
+// Easy Auth passes the user in X-MS-CLIENT-PRINCIPAL (base64 JSON claims) and X-MS-CLIENT-PRINCIPAL-NAME.
+// Browser sign-in (ID token) and the Teams tab (access token from Teams SSO) can carry the UPN in different
+// claims, so read the claims first and fall back to the name header.
+const UPN_CLAIMS = ['preferred_username', 'upn', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn', 'email'];
+
 function entraUser(headers: IncomingHttpHeaders, settings: AuthSettings): EntraUser | null {
   if (settings.mode === 'dev') {
     const upn = header(headers, 'x-dev-entra-upn') ?? readCookie(headers, DEV_UPN_COOKIE);
     return upn ? { upn: upn.toLowerCase(), name: upn.split('@')[0] } : null;
   }
-  const upn = header(headers, 'x-ms-client-principal-name');
-  if (!upn) return null;
-  let name = upn.split('@')[0];
+  let claims: { typ: string; val: string }[] = [];
   const principal = header(headers, 'x-ms-client-principal');
   if (principal) {
     try {
-      const parsed = JSON.parse(Buffer.from(principal, 'base64').toString('utf8')) as { claims?: { typ: string; val: string }[] };
-      name = parsed.claims?.find((c) => c.typ === 'name')?.val ?? name;
+      claims = (JSON.parse(Buffer.from(principal, 'base64').toString('utf8')) as { claims?: { typ: string; val: string }[] }).claims ?? [];
     } catch {
-      // Keep the UPN-based name.
+      claims = [];
     }
   }
-  return { upn: upn.toLowerCase(), name };
+  const claim = (typ: string) => claims.find((c) => c.typ === typ)?.val;
+  const fromClaims = UPN_CLAIMS.map(claim).find((v) => v && v.includes('@'));
+  const upn = fromClaims ?? header(headers, 'x-ms-client-principal-name');
+  if (!upn || !upn.includes('@')) return null;
+  return { upn: upn.toLowerCase(), name: claim('name') ?? upn.split('@')[0] };
 }
 
 export async function resolveCaller(headers: IncomingHttpHeaders, store: Store, settings: AuthSettings, now: Date): Promise<Caller | null> {

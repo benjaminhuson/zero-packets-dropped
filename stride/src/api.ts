@@ -44,11 +44,19 @@ export class ApiError extends Error {
   }
 }
 
+// Inside Teams, every call carries the Teams SSO token (see teams.ts). Elsewhere, the browser's cookies are enough.
+let tokenProvider: (() => Promise<string>) | null = null;
+export function setBearerTokens(provider: () => Promise<string>) {
+  tokenProvider = provider;
+}
+
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = body === undefined ? {} : { 'content-type': 'application/json' };
+  if (tokenProvider) headers.authorization = `Bearer ${await tokenProvider()}`;
   const res = await fetch(path, {
     method,
     credentials: 'same-origin',
-    headers: body === undefined ? {} : { 'content-type': 'application/json' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await res.json().catch(() => null);
@@ -59,8 +67,11 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 // Microsoft sign-in is handled by App Service authentication, outside the API.
 export const MICROSOFT_LOGIN = '/.auth/login/aad?post_login_redirect_uri=/';
 export const MICROSOFT_LOGOUT = '/.auth/logout?post_logout_redirect_uri=/';
+export const TEAMS_APP_PACKAGE = '/api/teams/app-package';
 
 export const api = {
+  teams: () => call<{ enabled: boolean; tabLink: string | null }>('GET', '/api/teams'),
+
   // 'offline' means there is no Stride API (e.g. `npm run dev` without the backend): run the prototype.
   async me(): Promise<Me | 'signed-out' | 'offline'> {
     try {

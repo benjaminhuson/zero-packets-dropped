@@ -4,7 +4,7 @@
 // Containers and partition keys are created by infra/main.bicep; see CONTAINERS below.
 import { CosmosClient, type Container, type SqlQuerySpec } from '@azure/cosmos';
 import { DefaultAzureCredential } from '@azure/identity';
-import type { ChatTurn, CheckInRequest, Journey, Note, StarterAccount, StarterState, Store, TeamsMessage, UserId } from '../contracts.js';
+import type { ChatTurn, CheckInRequest, Journey, Note, StarterAccount, StarterState, Store, TeamsContact, TeamsMessage, UserId } from '../contracts.js';
 
 // Container name -> partition key path. Keep in step with infra/main.bicep.
 export const CONTAINERS = {
@@ -15,6 +15,7 @@ export const CONTAINERS = {
   starters: '/id',
   starterState: '/userId',
   notes: '/starterId',
+  teamsContacts: '/upn',
 } as const;
 
 type Name = keyof typeof CONTAINERS;
@@ -125,5 +126,14 @@ export class CosmosStore implements Store {
   }
   listNotes(starterId: UserId) {
     return this.query<Note>('notes', { query: 'SELECT * FROM c ORDER BY c.sentAt ASC' }, starterId);
+  }
+
+  // ---- Teams contacts (partition = upn) ------------------------------------------------
+
+  getTeamsContact(upn: string) {
+    return this.read<TeamsContact>('teamsContacts', upn, upn);
+  }
+  async saveTeamsContact(contact: TeamsContact) {
+    await this.c.teamsContacts.items.upsert({ id: contact.upn, ...contact });
   }
 }

@@ -1355,3 +1355,8 @@ h3, .value-detail h3, .value-card h3 { font-size: 1.5rem; line-height: 1.2; }
 @media (max-width: 760px) {
   .staff-grid { grid-template-columns: 1fr; }
 }
+
+/* ---- Teams ---- */
+.teams-card { margin-bottom: 1.5rem; border-left: 6px solid var(--teams); }
+.teams-card ol { padding-left: 1.2rem; line-height: 1.6; }
+.teams-card a { color: var(--green); }

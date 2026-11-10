@@ -3,15 +3,16 @@
 Local skeleton for the Stride API. It runs with in-memory storage, a Teams mock and a rule-based Cancara,
 so the team can work in parallel before any Azure resources exist.
 
-Sign-in, people (colleague, line manager, buddy) and Cosmos DB storage are built. Hosting is in
-[`infra/README.md`](../infra/README.md). Graph (Teams) and the AI agent are still stubs.
+Sign-in, people (colleague, line manager, buddy), Cosmos DB storage and Microsoft Teams (bot notifications, Teams tab
+sign-in, check-in meetings) are built. Hosting and Teams setup are in [`infra/README.md`](../infra/README.md). The AI agent is
+still a stub.
 
 ## Run it
 
 ```bash
 cd backend
 npm install
-npm test          # 17 tests: domain rules, consent gate, nudges, catch-up, Cancara, sign-in and access
+npm test          # 26 tests: domain rules, consent gate, nudges, catch-up, Cancara, sign-in, access and Teams
 npm run dev       # starts on http://localhost:3001 (PORT in .env)
 ```
 
@@ -44,13 +45,18 @@ src/
   store/memory.ts       in-memory store (local runs and tests)
   store/cosmos.ts       Cosmos DB store (keyless, managed identity)
   teams/mock.ts         Teams mock (local)
-  teams/graph.ts        Microsoft Graph / Teams bot (stub)
+  teams/graph.ts        real Teams delivery: finds the person, opens a 1:1 bot chat, sends a card
+  teams/bot/            bot endpoint: request verification (auth.ts), Bot Connector client, activity handler, cards
+  teams/meetings.ts     check-in meetings: Graph (calendar event) or a pre-filled Teams link
+  teams/package.ts      builds the Teams app package (manifest + icons) from the deployment's settings
+  api/notify.ts         turns saved front-end messages, check-ins and team thread notes into Teams messages
   agent/rules.ts        Cancara rule-based responder (local)
   agent/ai.ts           AI-backed Cancara (stub)
   scheduler/reminders.ts  daily catch-up job (idempotent)
   config.ts, server.ts  settings and entry point
 test/journey.test.ts    behaviour tests
 test/people.test.ts     sign-in and access tests
+test/teams.test.ts      Teams delivery, bot request verification, app package
 ```
 
 ## The five sections

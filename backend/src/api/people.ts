@@ -6,7 +6,8 @@
 //   3. Once IT creates their Entra account, the manager links its UPN. From the colleague's first Microsoft
 //      sign-in, Stride uses Entra only and the Stride password stops working.
 //   4. The manager and the buddy see the colleague in their list. The buddy sees less (see buddyView).
-import type { Caller, Clock, Note, Relationship, StarterAccount, StarterState, StarterSummary, Store, UserId } from '../contracts.js';
+import type { Caller, Clock, Note, Relationship, StarterAccount, StarterState, StarterSummary, Store, TeamsGateway, UserId } from '../contracts.js';
+import { deliverNote, deliverStateChanges } from './notify.js';
 import { HttpError } from './service.js';
 import { hashPassword, newInviteCode, normaliseInvite, sha256, verifyPassword } from '../auth/crypto.js';
 
@@ -31,7 +32,7 @@ export class PeopleService {
   // Simple in-process throttle for password sign-in: 5 failures per email per 15 minutes.
   private failures = new Map<string, { count: number; until: number }>();
 
-  constructor(private readonly store: Store, private readonly clock: Clock) {}
+  constructor(private readonly store: Store, private readonly clock: Clock, private readonly teams: TeamsGateway | null = null) {}
 
   // ---- Caller checks -------------------------------------------------------------
 
@@ -191,8 +192,13 @@ export class PeopleService {
   async saveState(caller: Caller | null, state: unknown, summary: unknown): Promise<StarterState> {
     const userId = PeopleService.starterId(caller);
     if (JSON.stringify(state ?? null).length > MAX_STATE_BYTES) throw new HttpError(413, 'State is too large');
+    const previous = await this.store.getStarterState(userId);
     const saved: StarterState = { userId, savedAt: this.clock.now().toISOString(), state, summary: this.cleanSummary(summary) };
     await this.store.saveStarterState(saved);
+    if (this.teams) {
+      const account = await this.store.getStarter(userId);
+      await deliverStateChanges(this.teams, account, userId, previous?.state ?? null, state, this.clock.now());
+    }
     return saved;
   }
 
@@ -219,6 +225,7 @@ export class PeopleService {
       note = { id: newId('note'), starterId, from: rel, fromName: me.name, text: body, sentAt: this.clock.now().toISOString() };
     }
     await this.store.appendNote(note);
+    if (this.teams) await deliverNote(this.teams, note);
     return note;
   }
 
