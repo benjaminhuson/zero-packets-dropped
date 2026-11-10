@@ -4,6 +4,7 @@
 export const LOCATIONS = {
   leeds: {
     label: 'Leeds',
+    image: { src: 'https://www.lloydsbankinggroup.com/assets/images/careers/location-pages/leeds-wellington-place-hero-mob.jpg', alt: 'Wellington Place, Leeds' },
     reception: '0113 000 0000 (placeholder)',
     firstDaySteps: [
       { time: 'Before you go', text: 'Check your building pass is in your bag, and plan your route from home. Leave with time to spare.' },

@@ -24,8 +24,8 @@ export type ProgressShare = { id: string; sentAt: string; pageTitle: string };
 export type TeamsMessage = {
   id: string;
   sentAt: string;
-  direction: 'to-manager' | 'to-starter';
-  kind: 'question' | 'action' | 'progress' | 'check-in' | 'reminder' | 'overdue' | 'stage';
+  direction: 'to-manager' | 'to-buddy' | 'to-starter';
+  kind: 'question' | 'action' | 'progress' | 'check-in' | 'reminder' | 'overdue' | 'stage' | 'message';
   text: string;
 };
 
@@ -326,6 +326,18 @@ export function useJourney(userId?: string) {
     update((s) => {
       const stage = STAGES[s.viewStage];
       const unlocked = unlockedStage(s.flow);
+      // "Book a Teams meeting": offer free slots from the manager's diary, to book with one tap
+      if (/\b(book|arrange|set up|schedule)\b.*\b(meeting|check-?in|catch-?up|call)\b|\bteams meeting\b/i.test(question)) {
+        const slots = freeSlots(new Date(), { count: 3 });
+        const you: ChatMessage = { id: newId('msg'), from: 'you', text: question, sentAt: now() };
+        const offer = cancaraMsg(
+          slots.length
+            ? `Here are some free times in your manager’s diary. Pick one and I will send the Teams meeting invite.`
+            : 'I cannot see any free times in the next few days. Please ask your manager directly on Teams.',
+          slots.length ? { kind: 'checkin', stage: s.viewStage, slots } : undefined,
+        );
+        return { ...s, chat: [...s.chat, you, offer] };
+      }
       const asksWhere = /where\s+(am|are)\s+(i|we)|my\s+progress|what\s+stage|which\s+stage/i.test(question);
       const reply = asksWhere
         ? {
@@ -347,6 +359,14 @@ export function useJourney(userId?: string) {
       const reply: ChatMessage = { id: newId('msg'), from: 'cancara', text: `Sent to ${MANAGER} on Teams. I will let you know when they reply.`, sentAt: now() };
       const chat = s.chat.map((m) => (m.escalate ? { ...m, escalate: false } : m));
       return { ...s, chat: [...chat, reply], teams: [msg('to-manager', 'question', question), ...s.teams] };
+    });
+
+  // Cancara passes a message from the starter to their manager or buddy on Teams
+  const messageSomeone = (who: 'manager' | 'buddy', text: string) =>
+    update((s) => {
+      const name = who === 'manager' ? (MANAGER === 'your manager' ? 'your manager' : MANAGER) : 'your buddy';
+      const reply: ChatMessage = { id: newId('msg'), from: 'cancara', text: `Sent to ${name} on Teams. I will let you know when they reply.`, sentAt: now() };
+      return { ...s, chat: [...s.chat, reply], teams: [msg(who === 'manager' ? 'to-manager' : 'to-buddy', 'message', text), ...s.teams] };
     });
 
   // Tell the manager which of their steps are waiting on them
@@ -428,6 +448,7 @@ export function useJourney(userId?: string) {
     requestCheckIn,
     askCancara,
     sendQuestionToManager,
+    messageSomeone,
     notifyManagerOfActions,
     reset,
   };

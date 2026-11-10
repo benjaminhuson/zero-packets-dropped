@@ -1,4 +1,5 @@
-// Cancara, the AI buddy.
+import { findJourneyAnswer } from './knowledge';
+// Cancara, the digital buddy.
 // Prototype: a rule-based responder so the flows can be tested end to end. Replace `answer`
 // with a call to the approved AI service once it is connected.
 
@@ -27,6 +28,36 @@ export function managerActionFor(week: number): string | null {
 }
 
 // Keyword-based answers that cover the common new-starter questions
+// Facts about Lloyds Bank from lloydsbank.com (and linked public pages). Each carries its source.
+const LB_SOURCE = 'Source: lloydsbank.com';
+const LB_FACTS: { words: string[]; reply: string }[] = [
+  {
+    words: ['history', 'founded', 'origins', '1765'],
+    reply: `Lloyds Bank's roots go back to 1765, when the company was founded. We have been serving households, businesses and communities across Britain ever since. ${LB_SOURCE}`,
+  },
+  {
+    words: ['purpose', 'prosper'],
+    reply: `Our purpose is Helping Britain Prosper. It guides our specialist teams and programmes, and it is the reason behind most of the decisions we make. ${LB_SOURCE}`,
+  },
+  {
+    words: ['protected', 'fscs', 'regulated', 'regulator', 'fca', 'pra'],
+    reply: `Lloyds Bank plc is authorised by the Prudential Regulation Authority and regulated by the Financial Conduct Authority and the PRA. Deposits are protected by the Financial Services Compensation Scheme (FSCS). ${LB_SOURCE}`,
+  },
+  {
+    words: ['customer helpline', 'customer phone', 'customer number'],
+    reply: `For customers, personal banking is on 0345 300 0000 (from abroad +44 (0)1733 347 007), and business banking is on 0345 072 5555. This is for customer questions. For your own laptop or systems questions, use the IT@LBG route in Stage 4. ${LB_SOURCE}`,
+  },
+];
+
+// Basic conversation, so Cancara can say the usual things back
+const SMALL_TALK: { words: string[]; reply: string }[] = [
+  { words: ['hello', 'hi', 'hey', 'hiya', 'morning', 'afternoon', 'evening'], reply: 'Hello! I am Cancara, your digital buddy. How can I help with your journey today? You can ask me what to do next, or where you are.' },
+  { words: ['thanks', 'thank', 'cheers', 'ta'], reply: 'You are very welcome. Ask me anything else, any time.' },
+  { words: ['bye', 'goodbye', 'cya'], reply: 'Goodbye for now. I will be here whenever you need me.' },
+  { words: ['how are you', 'how are things', "how's it going", 'how is it going'], reply: 'I am doing well, thank you for asking. How are you getting on with your journey?' },
+  { words: ['who are you', 'what are you'], reply: 'I am Cancara, your digital buddy. I guide you through each stage, answer questions from Stride, and can message your manager or buddy on Teams for you.' },
+];
+
 const RULES: { words: string[]; reply: string; escalate?: boolean }[] = [
   {
     words: ['values', 'value'],
@@ -63,6 +94,19 @@ const RULES: { words: string[]; reply: string; escalate?: boolean }[] = [
 
 export function answer(question: string, currentWeek: number, currentTitle: string): { text: string; escalate: boolean } {
   const q = question.toLowerCase();
+  // Small talk: greetings, thanks, goodbyes
+  const small = SMALL_TALK.find((t) => t.words.some((w) => new RegExp(`\\b${w}\\b`).test(q)));
+  if (small) return { text: small.reply, escalate: false };
+  // Journey content first: stages, steps, triggers, devices and locations
+  // Questions the rules hand to a person (holiday, pay, laptop) keep their escalation
+  const handOver = RULES.some((r) => r.escalate && r.words.some((w) => new RegExp(`\\b${w}\\b`).test(q)));
+  const journey = handOver ? null : findJourneyAnswer(question);
+  if (journey) return { text: journey.text, escalate: false };
+  for (const fact of LB_FACTS) {
+    if (fact.words.some((w) => new RegExp(`\\b${w}\\b`).test(q))) {
+      return { text: fact.reply, escalate: false };
+    }
+  }
   for (const rule of RULES) {
     if (rule.words.some((w) => new RegExp(`\\b${w}\\b`).test(q))) {
       if (rule.reply === null) {
@@ -76,7 +120,7 @@ export function answer(question: string, currentWeek: number, currentTitle: stri
     }
   }
   return {
-    text: `I am not sure about that one. I can pass it to your manager on Teams so they can reply. Would you like me to?`,
+    text: `I am not sure about that one, but your manager is the best person to ask. Would you like me to send your question to them on Teams?`,
     escalate: true,
   };
 }

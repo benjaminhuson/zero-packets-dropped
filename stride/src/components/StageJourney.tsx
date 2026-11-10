@@ -5,6 +5,7 @@ import { hasStarted, unlockedStage, type Details, type Flow, type JourneyState }
 import { Horse } from './Horse';
 import { freeSlots, type Slot } from '../calendar';
 import { LOCATIONS } from '../locations';
+import { RaceEgg } from './RaceEgg';
 import { ValuesExplorer } from './ValuesExplorer';
 
 export interface Actions {
@@ -68,8 +69,48 @@ function stepDone(step: Step, f: Flow): boolean {
   }
 }
 
+// A short confetti burst, pure CSS. Respects reduced motion (see styles).
+const CONFETTI_COLOURS = ['#6cf479', '#11b67a', '#024731', '#e0445a', '#f2c230', '#2f7fd1', '#7b5cc4'];
+function Confetti() {
+  const pieces = useRef(
+    Array.from({ length: 60 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 0.6,
+      duration: 2.2 + Math.random() * 1.6,
+      drift: (Math.random() - 0.5) * 160,
+      spin: (Math.random() - 0.5) * 720,
+      colour: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length],
+      round: i % 3 === 0,
+    })),
+  ).current;
+  return (
+    <div className="confetti" aria-hidden="true">
+      {pieces.map((p) => (
+        <span
+          key={p.id}
+          className={`confetti-piece${p.round ? ' round' : ''}`}
+          style={{
+            left: `${p.left}%`,
+            background: p.colour,
+            animationDelay: `${p.delay}s`,
+            animationDuration: `${p.duration}s`,
+            ['--drift' as string]: `${p.drift}px`,
+            ['--spin' as string]: `${p.spin}deg`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step: Step; flow: Flow; actions: Actions; locked: boolean; prereqTitle?: string; firstName: string }) {
   const done = stepDone(step, flow);
+  // Reading an article counts as done, so there is no tick box to go back for.
+  useEffect(() => {
+    if (step.kind === 'article' && !locked && !stepDone(step, flow)) actions.toggleStep(step.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step.id, locked]);
   if (locked) {
     return (
       <li className="step locked">
@@ -296,6 +337,7 @@ function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step
             <>
               <details className="fact" open>
                 <summary>Where you will be</summary>
+                {'image' in loc && loc.image && <img className="fact-image" src={loc.image.src} alt={loc.image.alt} loading="lazy" />}
                 <p className="article-text">{loc.address}</p>
               </details>
               <details className="fact" open>
@@ -317,8 +359,8 @@ function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step
                 <p className="day-plan-title">Useful contacts</p>
                 <dl className="contact-list">
                   <div><dt>Reception</dt><dd>{loc.reception}</dd></div>
-                  <div><dt>Your manager</dt><dd>{LINE_MANAGER.name}, {LINE_MANAGER.role}<br /><a href={`mailto:${MANAGER_EMAIL}`}>{MANAGER_EMAIL}</a></dd></div>
-                  <div><dt>Your buddy</dt><dd>{BUDDY.name}, {BUDDY.role}<br /><a href={`mailto:${BUDDY_EMAIL}`}>{BUDDY_EMAIL}</a></dd></div>
+                  <div><dt>Your manager</dt><dd>{LINE_MANAGER.name || 'To be confirmed'}{LINE_MANAGER.role && `, ${LINE_MANAGER.role}`}{MANAGER_EMAIL && <><br /><a href={`mailto:${MANAGER_EMAIL}`}>{MANAGER_EMAIL}</a></>}</dd></div>
+                  <div><dt>Your buddy</dt><dd>{BUDDY.name || 'To be confirmed'}{BUDDY.role && `, ${BUDDY.role}`}{BUDDY_EMAIL && <><br /><a href={`mailto:${BUDDY_EMAIL}`}>{BUDDY_EMAIL}</a></>}</dd></div>
                   <div><dt>IT helpdesk (IT@LBG)</dt><dd>Find it on the Lloyds intranet, or use the chat button for help.</dd></div>
                 </dl>
               </div>
@@ -396,6 +438,7 @@ function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step
           {(step.sections ?? []).map((sec) => (
             <details key={sec.title} className="fact">
               <summary>{sec.title}</summary>
+              {sec.image && <img className="fact-image" src={sec.image.src} alt={sec.image.alt} loading="lazy" />}
               <p className="article-text">{sec.text}</p>
               {sec.href && (
                 <a className="fact-link" href={sec.href} target="_blank" rel="noopener noreferrer">
@@ -431,14 +474,16 @@ function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step
               )}
             </details>
           ))}
-          <label className="step-check">
-            <input type="checkbox" checked={flow.stepsDone.includes(step.id)} onChange={() => actions.toggleStep(step.id)} />
-            <span>Mark as read</span>
-          </label>
         </details>
       );
       break;
     case 'auto':
+      control = step.id === 's1-vetting' && !flow.vettingComplete ? (
+        <button className="btn outline demo-confirm" onClick={actions.completeVetting}>
+          Demo: vetting is complete
+        </button>
+      ) : null;
+      break;
     case 'info':
     default:
       control = null;
@@ -456,6 +501,7 @@ function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step
       {step.body && <p className="step-body">{step.body}</p>}
       {step.id === 's0-accept' && flow.accepted && (
         <div className="congrats-inline" role="status">
+          <Confetti />
           <p className="congrats-title">Congratulations, {firstName}!</p>
           <p>You have said yes to the job. We are delighted to welcome you to Lloyds.</p>
         </div>
@@ -477,7 +523,8 @@ export function StageJourney(props: Props) {
   const steps = viewed.steps;
   const current = steps[Math.min(slide, steps.length - 1)];
   const currentPrereq = current.after ? steps.find((x) => x.id === current.after) : undefined;
-  const currentLocked = !!currentPrereq && !stepDone(currentPrereq, f);
+  // Steps within a stage open in order. Only a locked stage blocks, and that is handled on the stage nodes.
+  const currentLocked = false;
 
   // The horse sits at stage + fraction through the stage's slides.
   const fraction = steps.length > 0 ? Math.min(slide, steps.length - 1) / steps.length : 0;
@@ -487,6 +534,18 @@ export function StageJourney(props: Props) {
   // Gallop whenever the horse moves: a new slide or a new stage.
   const [walking, setWalking] = useState(false);
   const [facing, setFacing] = useState<1 | -1>(1);
+  // Hidden easter egg: triple-click the horse on the timeline to open the race
+  const [raceOpen, setRaceOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const clickTimes = useRef<number[]>([]);
+  const onHorseClick = () => {
+    const now = Date.now();
+    clickTimes.current = [...clickTimes.current.filter((t) => now - t < 800), now];
+    if (clickTimes.current.length >= 3) {
+      clickTimes.current = [];
+      setRaceOpen(true);
+    }
+  };
   const lastPos = useRef(horsePos);
   useEffect(() => {
     if (lastPos.current === horsePos) return;
@@ -588,11 +647,12 @@ export function StageJourney(props: Props) {
         </div>
         <div className="header-right">
           <span className="hello">Hi {state.firstName}</span>
-          <span className="people-chip">Manager: {LINE_MANAGER.name}</span>
-          <span className="people-chip">Buddy: {BUDDY.name}</span>
+          <span className="people-chip">Manager: {LINE_MANAGER.name || 'To be confirmed'}</span>
+          <span className="people-chip">Buddy: {BUDDY.name || 'To be confirmed'}</span>
         </div>
       </header>
 
+      {raceOpen && <RaceEgg onClose={() => setRaceOpen(false)} />}
       <div className="layout">
         <main className="main">
           {state.celebrate !== null && (
@@ -613,11 +673,11 @@ export function StageJourney(props: Props) {
               <div className="timeline-inner">
                 <div className="track">
                   <div className="track-fill" style={{ width: `${progressPct}%` }} />
-                  <div className={`horse-marker${walking ? ' walking' : ''}`} style={{ left: `${progressPct}%` }} aria-label={`You are on ${viewed.name}, step ${Math.min(slide, steps.length - 1) + 1} of ${steps.length}`}>
+                  <div className={`horse-marker${walking ? ' walking' : ''}`} style={{ left: `${progressPct}%`, cursor: 'pointer' }} onClick={onHorseClick} aria-label={`You are on ${viewed.name}, step ${Math.min(slide, steps.length - 1) + 1} of ${steps.length}`}>
                     <span className="marker-label">You are here</span>
                     <span className="horse-body">
                       <span className="horse-flip" style={{ transform: `scaleX(${facing})` }}>
-                        <Horse size={46} />
+                        <Horse size={66} />
                       </span>
                     </span>
                   </div>
@@ -641,6 +701,39 @@ export function StageJourney(props: Props) {
             </div>
           </nav>
 
+          <div className="timeline-expand">
+            <button className="btn outline" onClick={() => setTimelineOpen((v) => !v)} aria-expanded={timelineOpen}>
+              {timelineOpen ? 'Hide all steps ▲' : 'Show all steps ▼'}
+            </button>
+          </div>
+          {timelineOpen && (
+            <section className="timeline-panel" aria-label="All steps you can open">
+              {STAGES.map((st) => {
+                const open = st.id <= unlocked;
+                return (
+                  <div key={st.id} className={`tl-stage${open ? '' : ' tl-locked'}${st.id === state.viewStage ? ' tl-current' : ''}`}>
+                    <p className="tl-title">
+                      Stage {st.id}{open ? `: ${st.name}` : ''}
+                      {!open && <span className="cl-tag"> · Locked until stage {st.id - 1} is complete</span>}
+                    </p>
+                    {open && (
+                      <ol className="tl-steps">
+                        {st.steps.map((step, i) => (
+                          <li key={step.id}>
+                            <button className="tl-step" onClick={() => { goStage(st.id, i); setTimelineOpen(false); }}>
+                              <span className={`cl-box${stepDone(step, f) ? ' on' : ''}`} aria-hidden="true">{stepDone(step, f) ? '✓' : ''}</span>
+                              <span className={stepDone(step, f) ? 'cl-text done' : 'cl-text'}>{step.title}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
+          )}
+
           {showBubble && (
             <div
               ref={bubbleRef}
@@ -662,7 +755,7 @@ export function StageJourney(props: Props) {
               </div>
               <div className="cancara-bubble-body">
                 <p className="eyebrow">Cancara</p>
-                <p>Hi {state.firstName}, I’m Cancara, your AI buddy. I’ll guide you through every stage. Ask me anything, any time.</p>
+                <p>Hi {state.firstName}, I’m Cancara, your digital buddy. I’ll guide you through every stage. Ask me anything, any time, and I can message your manager or buddy on Teams for you.</p>
                 <div className="cancara-bubble-actions">
                   <button className="btn primary" onClick={() => { props.onOpenChat(); setBubbleHidden(true); }}>Say hello</button>
                   <button className="btn ghost" onClick={() => setBubbleHidden(true)}>Got it</button>

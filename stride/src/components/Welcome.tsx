@@ -6,7 +6,7 @@ type Props = { firstName: string; onContinue: () => void };
 const HOW_IT_WORKS = [
   'Your journey has six stages, from accepting your offer to your first day.',
   'Each stage opens when the one before it is complete. We will tell you when that happens.',
-  'Cancara, your AI buddy, guides you through every stage. Find Cancara at the bottom right of the screen.',
+  'Cancara, your digital buddy, guides you through every stage. Find Cancara at the bottom right of the screen.',
   'Your line manager only sees what you choose to share, and they hear from us through Teams.',
 ];
 
@@ -24,7 +24,7 @@ export function Welcome({ firstName, onContinue }: Props) {
           We are really glad you are here. Stride is your path to day one.
         </p>
         <p className="welcome-lead">
-          Your manager is <strong>{LINE_MANAGER.name}</strong> and your buddy is <strong>{BUDDY.name}</strong>.
+          Your manager is <strong>{LINE_MANAGER.name || 'to be confirmed'}</strong> and your buddy is <strong>{BUDDY.name || 'to be confirmed'}</strong>.
         </p>
         <p className="eyebrow welcome-eyebrow">How Stride works</p>
         <ul className="welcome-points">
