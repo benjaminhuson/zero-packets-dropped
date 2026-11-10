@@ -14,16 +14,12 @@ STEP="${1:-all}"
 [ -f "$ROOT/infra/.env" ] || { echo "Create infra/.env from infra/.env.example first."; exit 1; }
 set -a; source "$ROOT/infra/.env"; set +a
 : "${TEAM_NUMBER:?set TEAM_NUMBER in infra/.env}" "${RESOURCE_GROUP:?set RESOURCE_GROUP in infra/.env}"
-LOCATION="${LOCATION:-uksouth}"
-APP_SKU="${APP_SKU:-B1}"
-[[ "$APP_SKU" =~ ^(F1|B1|S1|P0v3)$ ]] || { echo "APP_SKU must be F1, B1, S1 or P0v3"; exit 1; }
 ENABLE_TEAMS="${ENABLE_TEAMS:-true}"   # Stride bot + Teams channel
 MEETINGS="${MEETINGS:-link}"           # link, or graph once admin consent for Calendars.ReadWrite is granted
 BOT_LOCATION="${BOT_LOCATION:-global}"
 [[ "$ENABLE_TEAMS" =~ ^(true|false)$ ]] || { echo "ENABLE_TEAMS must be true or false"; exit 1; }
 [[ "$MEETINGS" =~ ^(link|graph)$ ]] || { echo "MEETINGS must be link or graph"; exit 1; }
 [[ "$TEAM_NUMBER" =~ ^[0-9]{2}$ ]] || { echo "TEAM_NUMBER must be two digits, e.g. 03"; exit 1; }
-[[ "$LOCATION" == "uksouth" || "$LOCATION" == "italynorth" ]] || { echo "LOCATION must be uksouth or italynorth"; exit 1; }
 
 APP_REG_NAME="team${TEAM_NUMBER}-stride"
 STATE="$ROOT/infra/.deploy"   # git-ignored: web app name from the last infra run
@@ -31,6 +27,21 @@ mkdir -p "$STATE"
 
 az account show -o none 2>/dev/null || { echo "Run az login --tenant <tenant-domain> first."; exit 1; }
 az group show -n "$RESOURCE_GROUP" -o none || { echo "Can't see resource group $RESOURCE_GROUP. Check the subscription."; exit 1; }
+
+# Region and plan size: infra/.env if set there, otherwise whatever the last deployment used (Cloud Shell without
+# storage forgets infra/.env, and redeploying to a different region would clash), otherwise the defaults.
+previous() { az deployment group show -g "$RESOURCE_GROUP" -n stride --query "properties.parameters.$1.value" -o tsv 2>/dev/null || true; }
+LOCATION="${LOCATION:-$(previous location)}"; LOCATION="${LOCATION:-uksouth}"
+APP_SKU="${APP_SKU:-$(previous appServiceSku)}"; APP_SKU="${APP_SKU:-B1}"
+[[ "$LOCATION" == "uksouth" || "$LOCATION" == "italynorth" ]] || { echo "LOCATION must be uksouth or italynorth"; exit 1; }
+[[ "$APP_SKU" =~ ^(F1|B1|S1|P0v3)$ ]] || { echo "APP_SKU must be F1, B1, S1 or P0v3"; exit 1; }
+echo "Region $LOCATION, App Service plan $APP_SKU."
+
+# Recover the web app's name and address from the last deployment if this machine has lost infra/.deploy.
+if [ ! -s "$STATE/webapp" ]; then
+  az deployment group show -g "$RESOURCE_GROUP" -n stride --query properties.outputs.webAppName.value -o tsv > "$STATE/webapp" 2>/dev/null || true
+  az deployment group show -g "$RESOURCE_GROUP" -n stride --query properties.outputs.hostName.value -o tsv > "$STATE/host" 2>/dev/null || true
+fi
 
 deploy_bicep() { # $1 = client id (may be empty)
   local name; name="$(cat "$STATE/webapp" 2>/dev/null || true)"
