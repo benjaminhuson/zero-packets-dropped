@@ -73,6 +73,11 @@ Everything is in the hackathon tenant. `deploy.sh infra` sets it up when `ENABLE
 - New colleague: stage unlocks, check-ins and team thread messages, but only after their Entra account is linked and used.
   Before that they are not in Teams, so messages stay in Stride.
 
+**Replying from Teams:** team thread messages and the colleague's questions arrive as cards with a reply box. Pressing
+**Reply** posts the answer to the colleague's team thread as that person, with the same access rules as Stride (only the
+colleague, their manager and their buddy). The card then shows "You replied: ...". Stride's thread checks for new
+messages every 20 seconds, so the colleague sees the reply without refreshing.
+
 The bot can only message people in a team that has the Stride app, or who added it themselves.
 
 **Check-in meetings** (`MEETINGS` in `infra/.env`):

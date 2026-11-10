@@ -56,7 +56,7 @@ function SignedInBar({ me, onSignedOut }: { me: Extract<Me, { kind: 'starter' }>
   const [notes, setNotes] = useState<Note[]>([]);
   const [open, setOpen] = useState(false);
   const load = useCallback(() => { void api.notes().then(setNotes).catch(() => undefined); }, []);
-  useEffect(load, [load]);
+  useEffect(() => { load(); const t = window.setInterval(load, 20_000); return () => window.clearInterval(t); }, [load]);
 
   const signOut = async () => {
     if (me.via === 'entra') return window.location.assign(MICROSOFT_LOGOUT);

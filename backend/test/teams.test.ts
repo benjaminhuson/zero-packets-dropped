@@ -26,6 +26,8 @@ class FakeConnector {
   readonly tenantId = TENANT;
   sent: { conversationId: string; activity: Partial<Activity> }[] = [];
   created: string[] = [];
+  updated: { activityId: string; activity: Partial<Activity> }[] = [];
+  async update(_s: string, _c: string, activityId: string, activity: Partial<Activity>) { this.updated.push({ activityId, activity }); return {}; }
   roster: ChannelAccount[] = [];
   async send(_s: string, conversationId: string, activity: Partial<Activity>) { this.sent.push({ conversationId, activity }); return {}; }
   async createPersonalConversation(_s: string, _t: string, teamsUserId: string) { this.created.push(teamsUserId); return `a:${teamsUserId}`; }
@@ -42,7 +44,8 @@ async function setup() {
   const gateway = new GraphTeamsGateway({ store, connector: connector as unknown as BotConnector, meetings: null, appUrl: 'https://teams.example/tab' });
   const people = new PeopleService(store, { now: () => now }, gateway);
   const { starter, inviteCode } = await people.createStarter(manager, { firstName: 'Alex', lastName: 'Kim', email: 'a@example.test', buddyUpn: 'ben@example.test' });
-  const ctx = { store, connector: connector as unknown as BotConnector, appUrl: 'https://teams.example/tab', now: () => now };
+  const postNote = (caller: Caller, starterId: string, text: string) => people.postNote(caller, text, starterId);
+  const ctx = { store, connector: connector as unknown as BotConnector, appUrl: 'https://teams.example/tab', now: () => now, postNote };
   return { store, connector, gateway, people, starter, inviteCode, ctx, advance: (ms: number) => { now = new Date(now.getTime() + ms); }, now: () => now };
 }
 
@@ -161,4 +164,98 @@ test('meeting link is a pre-filled Teams new-meeting link', () => {
   assert.equal(url.searchParams.get('startTime'), '2026-11-12T23:45:00');
   assert.equal(url.searchParams.get('endTime'), '2026-11-13T00:15:00');
   assert.equal(url.searchParams.get('attendees'), 'a@x');
+});
+
+// ---- Replying from Teams -------------------------------------------------------------
+
+type Card = { body: { type: string; text?: string; id?: string }[]; actions: { type: string; title: string; data?: Record<string, unknown> }[] };
+const cardOf = (a: Partial<Activity>) => a.attachments?.[0].content as Card;
+
+async function inTeam(connector: FakeConnector, ctx: Parameters<typeof handleActivity>[1], members: ChannelAccount[]) {
+  connector.roster = members;
+  await handleActivity({ type: 'conversationUpdate', serviceUrl: SERVICE, channelData: { tenant: { id: TENANT }, team: { id: 'team-1' } } }, ctx);
+}
+
+// What Teams sends when someone presses Reply on a card.
+function pressReply(card: Card, typed: string, from: ChannelAccount, conversationId: string): Activity {
+  const submit = card.actions.find((a) => a.title === 'Reply')!;
+  return {
+    type: 'message', serviceUrl: SERVICE, replyToId: 'card-1',
+    channelData: { tenant: { id: TENANT } },
+    conversation: { id: conversationId, conversationType: 'personal' },
+    from: { id: from.id }, value: { ...submit.data, reply: typed },
+  };
+}
+
+test('team thread cards have a reply box; replying from Teams posts to the thread as that person', async () => {
+  const { connector, people, starter, ctx, store } = await setup();
+  const priya = member('priya@example.test', 1);
+  const ben = member('ben@example.test', 2);
+  await inTeam(connector, ctx, [priya, ben]);
+
+  await people.postNote(buddy, 'Alex asked about parking', starter.id); // -> Priya's card
+  const card = cardOf(connector.sent[0].activity);
+  assert.equal(card.body.find((b) => b.type === 'Input.Text')?.id, 'reply');
+  assert.ok(card.actions.some((a) => a.type === 'Action.Submit' && a.title === 'Reply'));
+
+  connector.sent = [];
+  await handleActivity(pressReply(card, 'There is a car park on site.', priya, 'a:29:1'), ctx);
+  const notes = await store.listNotes(starter.id);
+  const last = notes[notes.length - 1];
+  assert.equal(last.from, 'manager');
+  assert.equal(last.text, 'There is a car park on site.');
+  // Card redrawn without the reply box; Ben (buddy) is told about Priya's reply.
+  assert.equal(connector.updated[0].activityId, 'card-1');
+  assert.match(cardOf(connector.updated[0].activity).body.at(-1)?.text ?? '', /You replied: There is a car park/);
+  assert.ok(!cardOf(connector.updated[0].activity).body.some((b) => b.type === 'Input.Text'));
+  assert.deepEqual(connector.sent.map((x) => x.conversationId), ['a:29:2']);
+});
+
+test("a question from the colleague can be answered in Teams; the answer quotes the question", async () => {
+  const { connector, people, starter, ctx, store, now } = await setup();
+  const priya = member('priya@example.test', 1);
+  await inTeam(connector, ctx, [priya]);
+  const asStarter: Caller = { kind: 'starter', userId: starter.id, name: 'Alex', via: 'stride' };
+  await people.saveState(asStarter, { teams: [{ id: 'q1', sentAt: now().toISOString(), direction: 'to-manager', kind: 'question', text: 'Do I need a suit?' }] }, {});
+  const card = cardOf(connector.sent[0].activity);
+  await handleActivity(pressReply(card, 'No, smart casual is fine.', priya, 'a:29:1'), ctx);
+  const notes = await store.listNotes(starter.id);
+  assert.equal(notes[0].text, 'Re: "Do I need a suit?" No, smart casual is fine.');
+});
+
+test('replies are refused for people with no access, and empty replies are not sent', async () => {
+  const { connector, people, starter, ctx, store } = await setup();
+  const priya = member('priya@example.test', 1);
+  const eve = member('eve@example.test', 9);
+  await inTeam(connector, ctx, [priya, eve]);
+  await people.postNote(buddy, 'Hello', starter.id);
+  const card = cardOf(connector.sent[0].activity);
+  const before = (await store.listNotes(starter.id)).length;
+
+  connector.sent = [];
+  await handleActivity(pressReply(card, 'I should not be able to post', eve, 'a:29:9'), ctx); // not manager or buddy
+  await handleActivity(pressReply(card, '   ', priya, 'a:29:1'), ctx); // empty
+  assert.equal((await store.listNotes(starter.id)).length, before);
+  assert.deepEqual(connector.sent.map((x) => cardOf(x.activity).body[0].text), ['Not sent', 'Nothing sent']);
+  assert.equal(connector.updated.length, 0);
+});
+
+test("a linked colleague can reply to their own thread from Teams, but not to someone else's", async () => {
+  const { connector, people, starter, ctx, store } = await setup();
+  const alex = member('alex.kim@example.test', 3);
+  await inTeam(connector, ctx, [member('priya@example.test', 1), alex]);
+  await people.linkEntra(manager, starter.id, 'alex.kim@example.test');
+  const account = (await store.getStarter(starter.id))!;
+  await store.saveStarter({ ...account, entraLinkedAt: '2026-11-10T10:00:00Z' });
+
+  await people.postNote(manager, 'Welcome Alex', starter.id); // -> Alex's card
+  const card = cardOf(connector.sent.find((x) => x.conversationId === 'a:29:3')!.activity);
+  await handleActivity(pressReply(card, 'Thanks Priya!', alex, 'a:29:3'), ctx);
+  const notes = await store.listNotes(starter.id);
+  assert.equal(notes.at(-1)?.from, 'starter');
+
+  const { starter: other } = await people.createStarter(manager, { firstName: 'Sam', lastName: '', email: 's@example.test', buddyUpn: null });
+  const forged = { ...card, actions: card.actions.map((a) => (a.title === 'Reply' ? { ...a, data: { ...a.data, starterId: other.id } } : a)) };
+  await handleActivity(pressReply(forged, 'Posting to Sam', alex, 'a:29:3'), ctx);
+  assert.equal((await store.listNotes(other.id)).length, 0);
 });
