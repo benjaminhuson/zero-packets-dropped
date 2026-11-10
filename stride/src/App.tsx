@@ -13,11 +13,24 @@ import { useCallback, useEffect, useState } from 'react';
 type Session = Me | 'signed-out' | 'offline' | 'loading' | { kind: 'teams-error'; message: string };
 
 const IN_TEAMS = inTeams();
+// Local development only: /?as=<email> signs in as a seeded colleague without a password (e.g. ?as=sophie.marlow@example.com).
+// /?chat=1 also opens Cancara on load.
+const DEV_AS = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('as') : null;
+const DEV_CHAT_SHORTCUT: string | null = DEV_AS;
+const DEV_OPEN_CHAT = import.meta.env.DEV && new URLSearchParams(window.location.search).get('chat') === '1';
 
 export default function App() {
   const [session, setSession] = useState<Session>('loading');
   const check = useCallback(() => {
-    if (!IN_TEAMS) return void api.me().then(setSession);
+    if (!IN_TEAMS) {
+      // Local development only: ?chat=1 signs in as a seeded colleague and opens Cancara.
+      if (DEV_CHAT_SHORTCUT) {
+        return void fetch('/api/dev/starter-login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: DEV_CHAT_SHORTCUT }) })
+          .then(() => api.me())
+          .then(setSession);
+      }
+      return void api.me().then(setSession);
+    }
     // Inside Teams: sign in silently with the Teams token.
     setBearerTokens(teamsToken);
     void teamsToken()
@@ -79,7 +92,7 @@ function Journey({ me, onSignedOut }: { me?: Extract<Me, { kind: 'starter' }>; o
   const journey = useJourney(me?.id);
   const { state } = journey;
   const bar = me && onSignedOut ? <SignedInBar me={me} onSignedOut={onSignedOut} /> : null;
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(DEV_OPEN_CHAT);
 
   if (!state.registered) {
     return <>{bar}<Entry onRegister={journey.register} /></>;

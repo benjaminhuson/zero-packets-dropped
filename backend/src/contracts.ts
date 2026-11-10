@@ -179,7 +179,7 @@ export interface TeamsGateway {
   createCheckInMeeting(userId: UserId, when: { date: string; time: string }, topic: string): Promise<{ joinUrl: string | null; scheduleUrl?: string }>;
 }
 
-// Section 4: Cancara (AI buddy)
+// Section 4: Cancara (guide)
 export interface AgentGateway {
   answer(question: string, context: { week: number; pageTitle: string }): Promise<{ text: string; escalate: boolean }>;
 }

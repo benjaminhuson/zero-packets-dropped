@@ -6,7 +6,7 @@ type Props = { firstName: string; onContinue: () => void };
 const HOW_IT_WORKS = [
   'Your journey has six stages, from accepting your offer to your first day.',
   'Each stage opens when the one before it is complete. We will tell you when that happens.',
-  'Cancara, your digital buddy, guides you through every stage. Find Cancara at the bottom right of the screen.',
+  'Cancara, your guide, guides you through every stage. Find Cancara at the bottom right of the screen.',
   'Your line manager only sees what you choose to share, and they hear from us through Teams.',
 ];
 

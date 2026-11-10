@@ -64,7 +64,7 @@ const VALUE_SUMMARIES: Record<string, string> = {
 
 // PLACEHOLDER COPY: confirm wording and facts with the Lloyds brand and history teams before launch.
 const CANCARA_STORY = [
-  'Cancara is your digital buddy. It is here whenever you have a question, and it will point you to the next step in your journey.',
+  'Cancara is your guide. It is here whenever you have a question, and it will point you to the next step in your journey.',
   'The black horse has been part of Lloyds for a very long time. It stands for strength, reliability and getting you where you need to go, which is what this journey is about.',
   'Ask Cancara anything from the button at the bottom right of the screen. If it cannot answer, it will pass your question to your line manager on Teams.',
   'I can also send a message to your line manager or your buddy on Teams for you. Just choose Message my manager or Message my buddy in the chat.',
@@ -121,7 +121,7 @@ export const STAGES: StageDef[] = [
     trigger: 'Vetting is complete (Workday)',
     steps: [
       { id: 's1-details', title: 'Confirm your details', kind: 'details', owner: 'you', body: 'Linked from Workday. Check these are right.' },
-      { id: 's1-cancara', title: 'Meet Cancara, your digital buddy', kind: 'article', owner: 'you', openByDefault: true, after: 's1-details', body: 'Cancara guides you through every stage.', paragraphs: CANCARA_STORY },
+      { id: 's1-cancara', title: 'Meet Cancara, your guide', kind: 'article', owner: 'you', openByDefault: true, after: 's1-details', body: 'Cancara guides you through every stage.', paragraphs: CANCARA_STORY },
       { id: 's1-history', title: 'The history of Lloyds Bank', kind: 'article', owner: 'you', after: 's1-cancara', body: 'Where we came from, and how we got here. Open each part to read more.', sections: LLOYDS_HISTORY_SECTIONS },
       { id: 's1-values', title: 'Our values', kind: 'values', owner: 'you', body: 'Tap each icon to explore the five values, one by one. Open each part below to read more.', after: 's1-history', sections: LBG_VALUES.map((v) => ({ title: v.name, text: `${VALUE_SUMMARIES[v.name]} The opposite is: ${v.opposite}` })) },
       { id: 's1-strategy', title: 'Our strategy', kind: 'article', owner: 'you', after: 's1-values', body: 'What we are working towards, and what it means for you. Open each part to read more.', sections: [

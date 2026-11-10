@@ -1,7 +1,7 @@
 import { findJourneyAnswer } from './knowledge';
-// Cancara, the digital buddy.
+// Cancara, the guide.
 // Prototype: a rule-based responder so the flows can be tested end to end. Replace `answer`
-// with a call to the approved AI service once it is connected.
+// with a call to the approved content service once it is connected.
 
 export type ChatMessage = {
   id: string;
@@ -51,11 +51,11 @@ const LB_FACTS: { words: string[]; reply: string }[] = [
 
 // Basic conversation, so Cancara can say the usual things back
 const SMALL_TALK: { words: string[]; reply: string }[] = [
-  { words: ['hello', 'hi', 'hey', 'hiya', 'morning', 'afternoon', 'evening'], reply: 'Hello! I am Cancara, your digital buddy. How can I help with your journey today? You can ask me what to do next, or where you are.' },
+  { words: ['hello', 'hi', 'hey', 'hiya', 'morning', 'afternoon', 'evening'], reply: 'Hello! I am Cancara, your guide. How can I help with your journey today? You can ask me what to do next, or where you are.' },
   { words: ['thanks', 'thank', 'cheers', 'ta'], reply: 'You are very welcome. Ask me anything else, any time.' },
   { words: ['bye', 'goodbye', 'cya'], reply: 'Goodbye for now. I will be here whenever you need me.' },
   { words: ['how are you', 'how are things', "how's it going", 'how is it going'], reply: 'I am doing well, thank you for asking. How are you getting on with your journey?' },
-  { words: ['who are you', 'what are you'], reply: 'I am Cancara, your digital buddy. I guide you through each stage, answer questions from Stride, and can message your manager or buddy on Teams for you.' },
+  { words: ['who are you', 'what are you'], reply: 'I am Cancara, your guide. I guide you through each stage, answer questions from Stride, and can message your manager or buddy on Teams for you.' },
 ];
 
 const RULES: { words: string[]; reply: string; escalate?: boolean }[] = [

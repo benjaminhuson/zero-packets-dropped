@@ -739,7 +739,7 @@ li.done { color: var(--muted); }
 .teams-logo { width: 40px; height: 40px; flex: 0 0 auto; }
 .horse-img { border-radius: 0; background: none; }
 
-/* ---------- Cancara, the AI buddy ---------- */
+/* ---------- Cancara, the guide ---------- */
 .cancara-fab {
   position: fixed;
   right: 1.25rem;

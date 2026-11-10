@@ -115,6 +115,15 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
       return { status: 200, body: { ok: true }, headers: { 'set-cookie': `${DEV_UPN_COOKIE}=${encodeURIComponent(upn)}; Path=/; HttpOnly; SameSite=Lax` } };
     }),
 
+    // Local development only (AUTH=dev): sign in as a seeded new colleague without their password.
+    r('POST', '/api/dev/starter-login', async (c) => {
+      if (!deps.devAuth) throw new HttpError(404, 'Not found');
+      const email = str(c.body, 'email').trim().toLowerCase();
+      const account = await deps.store.findStarterByEmail(email);
+      if (!account) throw new HttpError(404, 'No Stride account for that email');
+      return { status: 200, body: { ok: true }, headers: startSession(account.id) };
+    }),
+
     // ---- Teams ----
     // The Bot Connector posts Teams activities here. Authenticated by the bot's own JWT (see teams/bot/auth.ts);
     // App Service authentication skips this path (excludedPaths in infra/main.bicep).
