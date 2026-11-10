@@ -18,7 +18,7 @@ import { GraphMeetings } from './teams/meetings.js';
 import { buildPackage, tabDeepLink } from './teams/package.js';
 import { RulesAgent } from './agent/rules.js';
 import { AiAgent } from './agent/ai.js';
-import type { Clock, Store, TeamsGateway, AgentGateway } from './contracts.js';
+import type { Caller, Clock, Store, TeamsGateway, AgentGateway } from './contracts.js';
 
 const config = loadConfig();
 
@@ -48,7 +48,8 @@ if (config.teams === 'graph') {
         throw new HttpError(401, 'Unauthorized');
       }
       // Answer Teams straight away; do the work in the background.
-      void handleActivity(activity, { store, connector, appUrl: tabLink, now: clock.now }).catch((err) =>
+      const postNote = (caller: Caller, starterId: string, text: string) => people.postNote(caller, text, starterId);
+      void handleActivity(activity, { store, connector, appUrl: tabLink, now: clock.now, postNote }).catch((err) =>
         console.error('bot activity failed:', err instanceof Error ? err.message : err));
     },
     appPackage: () => buildPackage(

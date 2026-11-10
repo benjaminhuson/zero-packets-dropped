@@ -24,6 +24,8 @@ export interface Activity {
   membersAdded?: ChannelAccount[];
   channelData?: { tenant?: { id?: string }; team?: { id?: string; name?: string } };
   attachments?: { contentType: string; content: unknown }[];
+  value?: unknown; // data from an Adaptive Card button (Action.Submit)
+  replyToId?: string; // the message a card button was pressed on
 }
 
 // Only Microsoft's Bot Connector hosts may receive our bot token.
@@ -59,6 +61,14 @@ export class BotConnector {
 
   send(serviceUrl: string, conversationId: string, activity: Partial<Activity>) {
     return this.call<{ id?: string }>(serviceUrl, 'POST', `v3/conversations/${encodeURIComponent(conversationId)}/activities`, { type: 'message', ...activity });
+  }
+
+  // Replaces a message the bot sent earlier (used to redraw a card after its Reply button is used).
+  update(serviceUrl: string, conversationId: string, activityId: string, activity: Partial<Activity>) {
+    return this.call<{ id?: string }>(
+      serviceUrl, 'PUT', `v3/conversations/${encodeURIComponent(conversationId)}/activities/${encodeURIComponent(activityId)}`,
+      { type: 'message', id: activityId, ...activity },
+    );
   }
 
   // Opens (or reopens) the one-to-one chat between the bot and a user. Works when the user has the

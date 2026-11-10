@@ -74,6 +74,10 @@ export async function deliverStateChanges(
     if (sent >= MAX_PER_SAVE) break;
     if (seen.has(m.id) || !recent(m.sentAt) || m.kind === 'check-in') continue; // check-ins: handled below
     const notice: TeamsNotice = { title: TITLES[m.kind] ?? 'Stride', text: m.direction === 'to-manager' ? `${name}: ${m.text}` : m.text };
+    // A question can be answered straight from Teams; the answer goes to the team thread.
+    if (m.direction === 'to-manager' && m.kind === 'question') {
+      notice.reply = { starterId: userId, placeholder: `Reply to ${name}`, quote: m.text };
+    }
     if (m.direction === 'to-manager') await teams.sendToManager(userId, notice);
     else await teams.sendToStarter(userId, notice);
     sent++;
@@ -101,9 +105,13 @@ export async function deliverStateChanges(
   return sent;
 }
 
-// Team thread: tell the other two people.
+// Team thread: tell the other two people, with a reply box that posts back to the thread.
 export async function deliverNote(teams: TeamsGateway, note: Note): Promise<void> {
-  const notice: TeamsNotice = { title: `Team thread: ${note.fromName}`, text: note.text.slice(0, 500) };
+  const notice: TeamsNotice = {
+    title: `Team thread: ${note.fromName}`,
+    text: note.text.slice(0, 500),
+    reply: { starterId: note.starterId, placeholder: `Reply to ${note.fromName}` },
+  };
   if (note.from !== 'starter') await teams.sendToStarter(note.starterId, notice);
   if (note.from !== 'manager') await teams.sendToManager(note.starterId, notice);
   if (note.from !== 'buddy') await teams.sendToBuddy(note.starterId, notice);

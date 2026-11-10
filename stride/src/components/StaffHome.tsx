@@ -58,6 +58,17 @@ export function StaffHome({ name, upn, inTeams = false }: Props) {
   };
   const reopen = async () => { if (selected) { await open(selected.id); await refresh(); } };
 
+  // Keep the open colleague's thread current (replies can arrive from Teams), every 20 seconds.
+  const selectedId = selected?.id;
+  useEffect(() => {
+    if (!selectedId) return;
+    const t = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void api.starter(selectedId).then(setSelected).catch(() => undefined);
+    }, 20_000);
+    return () => window.clearInterval(t);
+  }, [selectedId]);
+
   const act = (fn: () => Promise<unknown>) => async () => {
     setError(null);
     try { await fn(); await reopen(); } catch (err) { setError(err instanceof Error ? err.message : 'Something went wrong'); }

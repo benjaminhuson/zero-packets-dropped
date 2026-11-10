@@ -126,11 +126,16 @@ export interface TeamsContact {
   updatedAt: string;
 }
 
-// A Teams message with an optional button.
+// A Teams message with an optional button, and optionally a reply box that posts to the colleague's team thread.
 export interface TeamsNotice {
   title: string;
   text: string;
   link?: { label: string; url: string };
+  reply?: {
+    starterId: UserId;
+    placeholder: string; // e.g. "Reply to Alex"
+    quote?: string; // what is being replied to, added to the thread note as "Re: ..." (e.g. a question)
+  };
 }
 
 // ---- Gateways (interfaces each section implements) --------------------------
