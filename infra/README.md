@@ -109,6 +109,12 @@ Create test users in Entra ID named `teamNN-<name>` (portal, or `az ad user crea
 Example: `teamNN-priya` (line manager), `teamNN-ben` (buddy), `teamNN-alex` (the colleague's Entra account, linked later).
 They don't need Microsoft 365 licences to sign in to Stride. Only give licences (max 3) to accounts that need Teams.
 
+**Ten fake colleagues for demos:** `./infra/seed-demo.sh` adds ten made-up new colleagues (`@example.com`) managed by
+`teamNN-priya`, half with `teamNN-ben` as buddy, spread across every stage, two with the invite unused, and two with a short
+team thread. It prints their sign-in passwords and invite codes in the terminal only. It is safe to run again (it skips
+existing ones), sends nothing to Teams, and `--dry-run` shows what it would add. Different users? Set `DEMO_MANAGER_UPN`
+and `DEMO_BUDDY_UPN` in `infra/.env`.
+
 Demo flow:
 1. Sign in as `teamNN-priya`, add a colleague (synthetic personal email, buddy `teamNN-ben@...`). Copy the invite code.
 2. In a private window, choose **I have an invite code**, set a password, and start the journey.
