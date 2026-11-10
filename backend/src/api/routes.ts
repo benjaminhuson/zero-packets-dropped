@@ -8,6 +8,17 @@ import type { Caller, Store } from '../contracts.js';
 import { PeopleService } from './people.js';
 import { DEV_UPN_COOKIE, SESSION_COOKIE, SESSION_HOURS } from '../auth/caller.js';
 import { signSession } from '../auth/crypto.js';
+import { seedDemo } from '../demo/seed.js';
+import { MemoryStore } from '../store/memory.js';
+import { createHash, timingSafeEqual } from 'node:crypto';
+
+// Constant-time check of the x-admin-token header.
+function isAdmin(expected: string | null, given: string | null): boolean {
+  if (!expected || !given) return false;
+  const a = createHash('sha256').update(expected).digest();
+  const b = createHash('sha256').update(given).digest();
+  return timingSafeEqual(a, b);
+}
 
 export interface RequestContext {
   method: string;
@@ -198,8 +209,21 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
 
     // Scheduled job endpoint. Protected by an admin token; Azure will call it from a timer trigger.
     r('POST', '/api/admin/catch-up', async (c) => {
-      if (!deps.adminToken || c.adminToken !== deps.adminToken) throw new HttpError(403, 'Admin token required');
+      if (!isAdmin(deps.adminToken, c.adminToken)) throw new HttpError(403, 'Admin token required');
       return { status: 200, body: await runCatchUp(deps.store, service) };
+    }),
+    // Demo data (infra/seed-demo.sh). The app writes it with its own database access, so the person running the
+    // script needs no database permissions. Writes straight to the store: nothing is sent to Teams.
+    r('POST', '/api/admin/seed-demo', async (c) => {
+      if (!isAdmin(deps.adminToken, c.adminToken)) throw new HttpError(403, 'Admin token required');
+      const b = c.body as { managerUpn?: unknown; buddyUpn?: unknown; dryRun?: unknown } | null;
+      const upn = (v: unknown, name: string) => {
+        if (typeof v !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw new HttpError(400, `${name} must be a UPN (name@domain)`);
+        return v;
+      };
+      const target = b?.dryRun === true ? new MemoryStore() : deps.store;
+      const rows = await seedDemo(target, { managerUpn: upn(b?.managerUpn, 'managerUpn'), buddyUpn: upn(b?.buddyUpn, 'buddyUpn'), now: deps.clock.now() });
+      return { status: 200, body: { dryRun: b?.dryRun === true, rows } };
     }),
   ];
 }
