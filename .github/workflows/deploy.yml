@@ -42,6 +42,7 @@ jobs:
           mkdir pkg
           cp -r backend/dist backend/assets backend/package.json backend/package-lock.json pkg/
           cp -r stride/dist pkg/public
+          printf '{"commit":"%s","branch":"%s","builtAt":"%s"}\n' "${GITHUB_SHA::7}" "$GITHUB_REF_NAME" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > pkg/version.json
           (cd pkg && npm ci --omit=dev --no-audit --no-fund && zip -qr ../stride.zip .)
       - uses: azure/login@v2
         with:

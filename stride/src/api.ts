@@ -1,7 +1,12 @@
 // Calls to the Stride API. Same origin in Azure (App Service serves both), proxied by Vite locally.
 
+export interface Person {
+  name: string;
+  upn: string;
+}
+
 export type Me =
-  | { kind: 'starter'; id: string; name: string; via: 'stride' | 'entra'; entraLinkPending: boolean }
+  | { kind: 'starter'; id: string; name: string; via: 'stride' | 'entra'; entraLinkPending: boolean; manager: Person | null; buddy: Person | null }
   | { kind: 'staff'; name: string; upn: string; starters: StarterCard[] };
 
 export interface StarterSummary {
@@ -10,6 +15,7 @@ export interface StarterSummary {
   stagesTotal: number;
   stepsDone: number;
   startDate: string | null;
+  waitingOnManager?: string[];
 }
 
 export interface StarterCard {
@@ -20,6 +26,10 @@ export interface StarterCard {
   upn: string | null;
   entraLinked: boolean;
   summary: StarterSummary | null;
+  createdAt: string;
+  lastActive: string | null;
+  buddyUpn: string | null;
+  actions: string[];
 }
 
 export interface Note {
@@ -34,7 +44,6 @@ export interface Note {
 export interface StarterView extends StarterCard {
   notes: Note[];
   email?: string;
-  buddyUpn?: string | null;
   inviteExpiresAt?: string | null;
 }
 

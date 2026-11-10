@@ -126,6 +126,8 @@ export function summarise(s: JourneyState) {
     stagesTotal: STAGES.length,
     stepsDone: s.flow.stepsDone.length,
     startDate: s.flow.startDate,
+    // Shown to the line manager as "needs your action" in their admin panel.
+    waitingOnManager: s.flow.startDate && s.flow.starterAgreedDate && !s.flow.managerAgreedDate ? ['Confirm the start date'] : [],
   };
 }
 

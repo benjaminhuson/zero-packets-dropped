@@ -100,6 +100,7 @@ export interface StarterSummary {
   stagesTotal: number;
   stepsDone: number;
   startDate: string | null;
+  waitingOnManager?: string[]; // things in the journey only the line manager can do, e.g. "Confirm the start date"
 }
 
 // Basic comms: one thread per starter, shared by the starter, their manager and their buddy.

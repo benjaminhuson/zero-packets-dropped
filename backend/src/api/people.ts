@@ -26,6 +26,15 @@ export interface StarterCard {
   upn: string | null;
   entraLinked: boolean;
   summary: StarterSummary | null;
+  createdAt: string;
+  lastActive: string | null; // when the colleague's journey was last saved
+  buddyUpn: string | null;
+  actions: string[]; // what the line manager needs to do (empty for buddies)
+}
+
+export interface Person {
+  name: string;
+  upn: string;
 }
 
 export class PeopleService {
@@ -184,6 +193,9 @@ export class PeopleService {
       name: account?.firstName ?? caller.name,
       via: caller.via,
       entraLinkPending: !!account?.upn && !account.entraLinkedAt, // the Microsoft account is ready to use
+      // Who is in the colleague's team chat.
+      manager: account ? await this.person(account.managerUpn) : null,
+      buddy: account?.buddyUpn ? await this.person(account.buddyUpn) : null,
     };
   }
 
@@ -238,6 +250,14 @@ export class PeopleService {
     return v;
   }
 
+  // A display name for a work account: the name Teams gave us if we have it, else a tidy form of the UPN.
+  private async person(upn: string): Promise<Person> {
+    const contact = await this.store.getTeamsContact(upn);
+    if (contact?.name && !contact.name.includes('@')) return { name: contact.name, upn };
+    const local = upn.split('@')[0].replace(/^team\d+-/, '');
+    return { name: local.split(/[._-]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '), upn };
+  }
+
   private cleanSummary(raw: unknown): StarterSummary {
     const s = (raw ?? {}) as Record<string, unknown>;
     const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0);
@@ -247,19 +267,33 @@ export class PeopleService {
       stagesTotal: num(s.stagesTotal),
       stepsDone: num(s.stepsDone),
       startDate: typeof s.startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.startDate) ? s.startDate : null,
+      waitingOnManager: Array.isArray(s.waitingOnManager)
+        ? s.waitingOnManager.filter((x): x is string => typeof x === 'string').slice(0, 5).map((x) => x.slice(0, 80))
+        : [],
     };
   }
 
   private async card(account: StarterAccount, relationship: Relationship): Promise<StarterCard> {
     const saved = await this.store.getStarterState(account.id);
+    const invitePending = !account.passwordHash && !account.entraLinkedAt;
+    const actions: string[] = [];
+    if (relationship === 'manager') {
+      actions.push(...(saved?.summary.waitingOnManager ?? []));
+      // Stage 4 (Settle in) is when the work account should be set up and linked.
+      if (!account.upn && (saved?.summary.stage ?? 0) >= 4) actions.push('Link their work account');
+    }
     return {
       id: account.id,
       name: `${account.firstName} ${account.lastName}`.trim(),
       relationship,
-      invitePending: !account.passwordHash && !account.entraLinkedAt,
+      invitePending,
       upn: account.upn,
       entraLinked: !!account.entraLinkedAt,
       summary: saved?.summary ?? null,
+      createdAt: account.createdAt,
+      lastActive: saved?.savedAt ?? null,
+      buddyUpn: relationship === 'manager' ? account.buddyUpn : null,
+      actions,
     };
   }
 }

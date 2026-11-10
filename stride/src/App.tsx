@@ -3,10 +3,10 @@ import { StageJourney } from './components/StageJourney';
 import { CancaraChat } from './components/CancaraChat';
 import { SignIn } from './components/SignIn';
 import { StaffHome } from './components/StaffHome';
-import { NotesThread } from './components/NotesThread';
+import { TeamChat } from './components/TeamChat';
 import { useJourney } from './store';
 import { Welcome } from './components/Welcome';
-import { api, setBearerTokens, MICROSOFT_LOGIN, MICROSOFT_LOGOUT, type Me, type Note } from './api';
+import { api, setBearerTokens, MICROSOFT_LOGIN, MICROSOFT_LOGOUT, type Me } from './api';
 import { inTeams, notifyTeamsReady, teamsToken } from './teams';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -53,11 +53,6 @@ function TeamsSignInProblem({ message }: { message: string }) {
 
 // The signed-in new colleague, or the offline prototype when `me` is missing.
 function SignedInBar({ me, onSignedOut }: { me: Extract<Me, { kind: 'starter' }>; onSignedOut: () => void }) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [open, setOpen] = useState(false);
-  const load = useCallback(() => { void api.notes().then(setNotes).catch(() => undefined); }, []);
-  useEffect(() => { load(); const t = window.setInterval(load, 20_000); return () => window.clearInterval(t); }, [load]);
-
   const signOut = async () => {
     if (me.via === 'entra') return window.location.assign(MICROSOFT_LOGOUT);
     await api.logout().catch(() => undefined);
@@ -68,7 +63,6 @@ function SignedInBar({ me, onSignedOut }: { me: Extract<Me, { kind: 'starter' }>
     <>
       <div className="signed-in-bar">
         <span>Signed in as {me.name}</span>
-        <button className="linkish" onClick={() => setOpen(!open)}>Team thread ({notes.length})</button>
         {!IN_TEAMS && <button className="linkish" onClick={signOut}>Sign out</button>}
       </div>
       {me.entraLinkPending && (
@@ -76,11 +70,7 @@ function SignedInBar({ me, onSignedOut }: { me: Extract<Me, { kind: 'starter' }>
           Your Lloyds account is ready. <a href={MICROSOFT_LOGIN}>Sign in with Microsoft</a> from now on; your Stride password will stop working.
         </p>
       )}
-      {open && (
-        <div className="thread-popover">
-          <NotesThread title="You, your line manager and your buddy" notes={notes} onSend={async (t) => { await api.postNote(t); load(); }} />
-        </div>
-      )}
+      <TeamChat me={me} />
     </>
   );
 }

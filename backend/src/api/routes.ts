@@ -9,6 +9,7 @@ import { PeopleService } from './people.js';
 import { DEV_UPN_COOKIE, SESSION_COOKIE, SESSION_HOURS } from '../auth/caller.js';
 import { signSession } from '../auth/crypto.js';
 import { seedDemo } from '../demo/seed.js';
+import { VERSION } from '../version.js';
 import { MemoryStore } from '../store/memory.js';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
@@ -89,7 +90,8 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
   };
 
   return [
-    r('GET', '/api/health', async () => ({ status: 200, body: { ok: true, service: 'stride-backend' } })),
+    r('GET', '/api/health', async () => ({ status: 200, body: { ok: true, service: 'stride-backend', version: VERSION } })),
+    r('GET', '/api/version', async () => ({ status: 200, body: VERSION })),
 
     // ---- Sign-in. Microsoft sign-in is /.auth/login/aad (App Service), not an API route. ----
     r('GET', '/api/me', async (c) => ({ status: 200, body: await people.me(c.caller) })),
