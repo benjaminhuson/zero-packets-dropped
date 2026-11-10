@@ -662,7 +662,7 @@ export function StageJourney(props: Props) {
               </div>
               <div className="cancara-bubble-body">
                 <p className="eyebrow">Cancara</p>
-                <p>Hi {state.firstName}, I’m Cancara, your AI buddy. I’ll guide you through every stage. Ask me anything, any time.</p>
+                <p>Hi {state.firstName}, I’m Cancara, your guide. I’ll guide you through every stage. Ask me anything, any time.</p>
                 <div className="cancara-bubble-actions">
                   <button className="btn primary" onClick={() => { props.onOpenChat(); setBubbleHidden(true); }}>Say hello</button>
                   <button className="btn ghost" onClick={() => setBubbleHidden(true)}>Got it</button>

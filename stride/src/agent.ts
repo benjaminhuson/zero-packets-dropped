@@ -1,6 +1,6 @@
-// Cancara, the AI buddy.
+// Cancara, the guide.
 // Prototype: a rule-based responder so the flows can be tested end to end. Replace `answer`
-// with a call to the approved AI service once it is connected.
+// with a call to the approved content service once it is connected.
 
 export type ChatMessage = {
   id: string;

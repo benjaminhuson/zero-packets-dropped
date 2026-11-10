@@ -173,10 +173,10 @@ const OFFER_DAY_PAGES: Page[] = [
     id: 'cancara',
     week: 0,
     title: 'Meet Cancara',
-    kicker: 'Offer day · Your AI buddy',
+    kicker: 'Offer day · Your guide',
     kind: 'cancara',
     body: [
-      'This is Cancara, your AI buddy. Cancara will be with you throughout Stride, pointing you to the next step and answering simple questions.',
+      'This is Cancara, your guide. Cancara will be with you throughout Stride, pointing you to the next step and answering simple questions.',
       'The black horse has been part of Lloyds for a long time. It is a symbol of strength, reliability and getting you where you need to go.',
     ],
     highlights: ['Cancara is always here when you need a nudge', 'Ask Cancara what happens next at any point'],

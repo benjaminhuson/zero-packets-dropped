@@ -68,7 +68,7 @@ Each section owns a folder or file set and codes against `src/contracts.ts`. Cha
 | 1 | **API and domain** | `api/`, `domain/`, `content/`, `contracts.ts`, `server.ts` | Routes and rules match the front end; tests pass. Also: move `content/` to one shared package used by the front end. |
 | 2 | **Data (Cosmos DB)** | `store/cosmos.ts`, `store/memory.ts` | Every `Store` method works against a local Cosmos emulator or a dev account in our resource group; same tests pass with `STORE=cosmos`. |
 | 3 | **Teams and Graph** | `teams/graph.ts`, a Teams app manifest, bot setup | Reminders and manager messages arrive in a test Teams chat; check-in creates a meeting. Needs the permission request below. |
-| 4 | **Cancara (AI)** | `agent/ai.ts`, prompt and grounding rules | `AGENT=ai` answers only from approved content, escalates when unsure, and never answers pay or individual HR cases. |
+| 4 | **Cancara** | `agent/ai.ts`, prompt and grounding rules | `AGENT=ai` answers only from approved content, escalates when unsure, and never answers pay or individual HR cases. |
 | 5 | **Identity, scheduler and deployment** | auth middleware, timer trigger, Azure setup, `.env.example` | Entra ID tokens replace `x-user-id`; the catch-up job runs on a daily timer; the app deploys to our resource group in UK South or Italy North. |
 
 ## Before we start section 3

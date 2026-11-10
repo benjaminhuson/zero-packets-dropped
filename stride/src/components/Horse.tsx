@@ -1,7 +1,7 @@
-// Cancara, the AI buddy. Uses the supplied horse artwork.
+// Cancara, the guide. Uses the supplied horse artwork.
 type Props = { size?: number; className?: string; title?: string };
 
-export function Horse({ size = 56, className, title = 'Cancara, your AI buddy' }: Props) {
+export function Horse({ size = 56, className, title = 'Cancara, your guide' }: Props) {
   return (
     <img
       className={`horse-img${className ? ` ${className}` : ''}`}

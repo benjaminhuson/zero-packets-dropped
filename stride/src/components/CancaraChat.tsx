@@ -46,7 +46,7 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions, on
 
   return (
     <>
-      <button className={`cancara-fab${offerWaiting ? ' has-offer' : ''}`} onClick={() => setOpen(true)} aria-label="Ask Cancara, your AI buddy">
+      <button className={`cancara-fab${offerWaiting ? ' has-offer' : ''}`} onClick={() => setOpen(true)} aria-label="Ask Cancara, your guide">
         <Horse size={40} />
         <span>Ask Cancara · Stage {state.viewStage}</span>
       </button>
@@ -59,7 +59,7 @@ export function CancaraChat({ state, onAsk, onSendToManager, onNotifyActions, on
               <Horse size={38} />
               <div>
                 <p className="chat-name">Cancara</p>
-                <p className="fine">Your AI buddy · answers from Stride. Your manager sees anything you send them.</p>
+                <p className="fine">Your guide · answers from Stride. Your manager sees anything you send them.</p>
               </div>
               <button className="btn ghost" onClick={() => setOpen(false)}>
                 Close
