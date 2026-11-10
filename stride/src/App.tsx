@@ -5,6 +5,7 @@ import { SignIn } from './components/SignIn';
 import { StaffHome } from './components/StaffHome';
 import { NotesThread } from './components/NotesThread';
 import { useJourney } from './store';
+import { Welcome } from './components/Welcome';
 import { api, setBearerTokens, MICROSOFT_LOGIN, MICROSOFT_LOGOUT, type Me, type Note } from './api';
 import { inTeams, notifyTeamsReady, teamsToken } from './teams';
 import { useCallback, useEffect, useState } from 'react';
@@ -88,9 +89,14 @@ function Journey({ me, onSignedOut }: { me?: Extract<Me, { kind: 'starter' }>; o
   const journey = useJourney(me?.id);
   const { state } = journey;
   const bar = me && onSignedOut ? <SignedInBar me={me} onSignedOut={onSignedOut} /> : null;
+  const [chatOpen, setChatOpen] = useState(false);
 
   if (!state.registered) {
     return <>{bar}<Entry onRegister={journey.register} /></>;
+  }
+
+  if (!state.welcomed) {
+    return <>{bar}<Welcome firstName={state.firstName} onContinue={journey.markWelcomed} /></>;
   }
 
   return (
@@ -99,6 +105,10 @@ function Journey({ me, onSignedOut }: { me?: Extract<Me, { kind: 'starter' }>; o
       <StageJourney
         state={state}
         openStage={journey.openStage}
+        dismissCelebrate={journey.dismissCelebrate}
+        promptCheckIn={journey.promptCheckIn}
+        onOpenChat={() => setChatOpen(true)}
+        bookCheckInFromChat={journey.bookCheckInFromChat}
         toggleStep={journey.toggleStep}
         saveDetails={journey.saveDetails}
         setDevice={journey.setDevice}
@@ -106,6 +116,7 @@ function Journey({ me, onSignedOut }: { me?: Extract<Me, { kind: 'starter' }>; o
         confirmNotice={journey.confirmNotice}
         saveObjectives={journey.saveObjectives}
         saveContacts={journey.saveContacts}
+        setLocation={journey.setLocation}
         agreeStartDate={journey.agreeStartDate}
         managerConfirmDate={journey.managerConfirmDate}
         completeVetting={journey.completeVetting}
@@ -122,6 +133,9 @@ function Journey({ me, onSignedOut }: { me?: Extract<Me, { kind: 'starter' }>; o
         onAsk={journey.askCancara}
         onSendToManager={journey.sendQuestionToManager}
         onNotifyActions={journey.notifyManagerOfActions}
+        onBookCheckIn={journey.bookCheckInFromChat}
+        open={chatOpen}
+        onOpenChange={setChatOpen}
       />
       {!me && <button className="reset-link" onClick={journey.reset}>Reset prototype</button>}
     </>

@@ -12,10 +12,10 @@ import { hashPassword, newInviteCode, sha256 } from '../auth/crypto.js';
 const STAGE_NAMES = ['Conditional offer', 'Get set up', 'Meet your team', 'Get ready', 'Settle in', 'Day one'];
 const STEPS: string[][] = [
   ['s0-accept'],
-  ['s1-details', 's1-history', 's1-values', 's1-strategy', 's1-benefits', 's1-permissions'],
+  ['s1-details', 's1-cancara', 's1-history', 's1-values', 's1-strategy', 's1-benefits'],
   ['s2-checkin', 's2-learning', 's2-startdate'],
   ['s3-notice', 's3-device', 's3-photo'],
-  ['s4-team', 's4-admin', 's4-objectives', 's4-guidance', 's4-kb', 's4-induction'],
+  ['s4-objectives', 's4-guidance', 's4-kb', 's4-induction'],
   ['s5-date', 's5-training', 's5-contacts'],
 ];
 
@@ -91,6 +91,7 @@ function journeyState(p: Persona, now: Date) {
     startDate,
     state: {
       registered: true,
+      welcomed: true,
       firstName: p.first,
       flow,
       viewStage: stage,

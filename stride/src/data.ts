@@ -1,3 +1,9 @@
+import { scenario } from './profile';
+
+// Synthetic work email addresses for the demo. Replace with the directory values when connected.
+const emailFor = (name: string) => `${name.toLowerCase().replace(/ /g, '.')}@lloydsbanking.example`;
+export const MANAGER_EMAIL = emailFor(scenario.manager.name);
+export const BUDDY_EMAIL = emailFor(scenario.buddy.name);
 // All content is placeholder / mock data for the prototype.
 // Names, roles and copy must be replaced with approved content before any real use.
 
@@ -42,16 +48,16 @@ export const NEW_STARTER_ROLE = {
 
 export const LINE_MANAGER: Person = {
   id: 'lm',
-  name: 'Priya Shah',
-  role: 'Team Lead, Customer Insight',
+  name: scenario.manager.name,
+  role: scenario.manager.role,
   reportsTo: 'head',
   note: 'Your line manager. They will meet you in week one.',
 };
 
 export const BUDDY: Person = {
   id: 'buddy',
-  name: 'Ben Carter',
-  role: 'Analyst, Customer Insight',
+  name: scenario.buddy.name,
+  role: scenario.buddy.role,
   reportsTo: 'lm',
   note: 'Your human buddy for the first 90 days.',
 };
@@ -244,11 +250,11 @@ const OFFER_DAY_PAGES: Page[] = [
 
 // One page per week. Weeks 5, 9 and 13 are the Day 30, Day 60 and Day 90 milestones.
 const WEEK_PAGES: { id: string; week: number; title: string; body: string[]; tasks?: string[] }[] = [
-  { id: 'week1', week: 1, title: 'Settle in', body: ['Find your desk, get your accounts working and meet your team. Book a short coffee with each person and agree your first objectives with Priya.'], tasks: ['week1-coffee', 'week1-goals'] },
+  { id: 'week1', week: 1, title: 'Settle in', body: ['Find your desk, get your accounts working and meet your team. Book a short coffee with each person and agree your first objectives with your manager.'], tasks: ['week1-coffee', 'week1-goals'] },
   { id: 'week2', week: 2, title: 'Learn the ropes', body: ['Complete your induction e-learning. These modules cover how we work, data protection and our customer commitments.'], tasks: ['week2-training'] },
   { id: 'week3', week: 3, title: 'Get involved', body: ['Start joining the team’s day-to-day work. Shadowing a stand-up is a good way to see how priorities are set.'], tasks: ['week3-shadow'] },
   { id: 'week4', week: 4, title: 'Find your rhythm', body: ['Your work should be settling into a routine. Note anything that is unclear, and raise it with your buddy or line manager.'] },
-  { id: 'week5', week: 5, title: 'Day 30 check-in', body: ['Sit down with Priya and talk through the first month. Use this as your chance to ask for what you need and to share what is going well.'], tasks: ['week5-check'] },
+  { id: 'week5', week: 5, title: 'Day 30 check-in', body: ['Sit down with your manager and talk through the first month. Use this as your chance to ask for what you need and to share what is going well.'], tasks: ['week5-check'] },
   { id: 'week6', week: 6, title: 'Take on your first piece of work', body: ['Pick up a small piece of analysis, with your buddy checking in along the way.'] },
   { id: 'week7', week: 7, title: 'Share what you have learned', body: ['Show the team something you have worked on, however small. Sharing early builds confidence.'] },
   { id: 'week8', week: 8, title: 'Build your network', body: ['Set up a conversation with someone in a team you do not work with day to day. Learning how other parts of the bank work helps your own work.'] },
@@ -256,7 +262,7 @@ const WEEK_PAGES: { id: string; week: number; title: string; body: string[]; tas
   { id: 'week10', week: 10, title: 'Own your next steps', body: ['Think about where you want to be by the end of your first year, and talk it through with your line manager.'] },
   { id: 'week11', week: 11, title: 'Keep building', body: ['Take on more responsibility where you feel ready. Ask your buddy for honest feedback on how you are doing.'] },
   { id: 'week12', week: 12, title: 'Prepare your review', body: ['Gather the work you are proud of and the feedback you have received, ready for your Day 90 review.'] },
-  { id: 'week13', week: 13, title: 'Day 90 review', body: ['Look back on the last 90 days, celebrate what you have achieved and agree what comes next with Priya.'], tasks: ['week13-review'] },
+  { id: 'week13', week: 13, title: 'Day 90 review', body: ['Look back on the last 90 days, celebrate what you have achieved and agree what comes next with your manager.'], tasks: ['week13-review'] },
 ];
 
 export const PAGES: Page[] = [
