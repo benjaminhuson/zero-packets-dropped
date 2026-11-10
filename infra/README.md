@@ -3,12 +3,13 @@
 A PoC setup that works end to end in the team's resource group, for about £10 a month.
 
 ```
-Browser ──HTTPS──► App Service (Linux B1, UK South)  app-teamNN-stride-<sfx>
-                    ├─ App Service authentication: Microsoft sign-in (managers, buddies, linked colleagues)
-                    └─ Node: Stride front end (stride/dist) + API (backend/) on one origin
-                         │  managed identity, no keys
-                         ▼
-                   Cosmos DB serverless  cosmos-teamNN-stride-<sfx>   database "stride"
+Browser / Teams tab ──HTTPS──► App Service (Linux, UK South)  app-teamNN-stride-<sfx>
+                                ├─ App Service authentication: Microsoft sign-in (browser, and Teams SSO tokens)
+                                └─ Node: Stride front end + API on one origin, and the bot endpoint /api/messages
+                                     │ system identity                 │ id-teamNN-stride (user-assigned identity)
+                                     ▼                                 ▼
+                         Cosmos DB serverless             Azure Bot bot-teamNN-stride-<sfx> ──► Microsoft Teams
+                                                          Graph (meetings), via a federated credential on teamNN-stride
 ```
 
 ## Who signs in how
@@ -55,11 +56,65 @@ What `infra` does:
   so the daily reminder job may not run), or ask the organisers for App Service quota.
 - **Cosmos DB "capacity" errors in UK South**: set `LOCATION=italynorth` in `infra/.env` and run again.
 
+## Microsoft Teams
+
+Everything is in the hackathon tenant. `deploy.sh infra` sets it up when `ENABLE_TEAMS=true` (the default):
+
+| Piece | What it is | Secret? |
+| --- | --- | --- |
+| `id-teamNN-stride` | User-assigned managed identity: the bot's identity | None |
+| `bot-teamNN-stride-<sfx>` | Azure Bot (free F0, single tenant) with the Teams channel, calling `https://<app>/api/messages` | None |
+| `teamNN-stride` app registration | Also exposes `api://<app host>/<client id>` with `access_as_user`, pre-authorised for the Teams clients (tab SSO) | None |
+| Federated credential on `teamNN-stride` | Lets the bot identity sign in as `teamNN-stride` for Graph (meetings) | None |
+
+**What Stride sends in Teams** (one-to-one chat with the Stride bot):
+- Line manager: questions, actions and progress from the colleague, check-in requests, team thread messages.
+- Buddy: team thread messages.
+- New colleague: stage unlocks, check-ins and team thread messages, but only after their Entra account is linked and used.
+  Before that they are not in Teams, so messages stay in Stride.
+
+The bot can only message people in a team that has the Stride app, or who added it themselves.
+
+**Check-in meetings** (`MEETINGS` in `infra/.env`):
+- `link` (default): the manager gets a "Schedule in Teams" button that opens a pre-filled meeting. No permissions needed.
+- `graph`: Stride creates the meeting in the manager's calendar. Needs admin consent for Microsoft Graph
+  `Calendars.ReadWrite` (application) on `teamNN-stride`, and an Exchange licence for the manager. If it fails, Stride falls
+  back to the link. Invites go only to tenant accounts.
+
+### Set up Teams (once)
+1. Ask the organisers: (a) may we upload a custom Teams app to our own team; (b) give our 3 Microsoft 365 licences to
+   `teamNN-priya`, `teamNN-ben` and `teamNN-alex`.
+2. `git pull`, then `./infra/deploy.sh` (infra and app; this adds the bot).
+3. In Teams, create a team **`TeamNN - Stride`** and add the three users.
+4. Sign in to Stride in the browser as the manager. In **Stride in Microsoft Teams**, download the app package.
+5. In Teams: your team → **⋯ → Manage team → Apps → Upload an app**, and choose the zip. Members can now get messages.
+6. To open Stride as an app in Teams, each person: **Apps → Manage your apps → Upload an app → Upload a custom app**.
+   Inside Teams, Stride signs them in silently.
+
+After code changes to the Teams app (name, icons), download and upload the package again. Its version goes up automatically.
+
+### If Teams is blocked
+- **`RequestDisallowedByPolicy` for the bot** (region policy rejects `global`): ask the organisers, or set `ENABLE_TEAMS=false`
+  to deploy without Teams.
+- **`MissingSubscriptionRegistration` for `Microsoft.BotService` or `Microsoft.ManagedIdentity`**: ask the organisers to register it.
+- **"Upload a custom app" is missing in Teams**: custom app upload is off for the tenant or the user. Ask the organisers.
+- **The tab says it could not sign you in**: the `api://` setup on `teamNN-stride` failed (see the deploy output), or the
+  tenant needs consent. Stride still works in the browser.
+- **No messages arrive**: the person must be in a team that has the app (or have added it). Messages are skipped, not queued.
+  Check the app log (`az webapp log tail ...`) for lines starting with `teams:`.
+
 ## Demo users
 
 Create test users in Entra ID named `teamNN-<name>` (portal, or `az ad user create`). Keep passwords out of git.
 Example: `teamNN-priya` (line manager), `teamNN-ben` (buddy), `teamNN-alex` (the colleague's Entra account, linked later).
 They don't need Microsoft 365 licences to sign in to Stride. Only give licences (max 3) to accounts that need Teams.
+
+**Ten fake colleagues for demos:** `./infra/seed-demo.sh` adds ten made-up new colleagues (`@example.com`) managed by
+`teamNN-priya`, half with `teamNN-ben` as buddy, spread across every stage, two with the invite unused, and two with a short
+team thread. The live app does the writing (via an admin-token endpoint), so it needs no database permissions and
+works from Cloud Shell. It prints their sign-in passwords and invite codes in the terminal only. It is safe to run again (it skips
+existing ones), sends nothing to Teams, and `--dry-run` shows what it would add. Different users? Set `DEMO_MANAGER_UPN`
+and `DEMO_BUDDY_UPN` in `infra/.env`.
 
 Demo flow:
 1. Sign in as `teamNN-priya`, add a colleague (synthetic personal email, buddy `teamNN-ben@...`). Copy the invite code.
@@ -80,5 +135,6 @@ matching the branch you run it from. Then add secrets `AZURE_CLIENT_ID`, `AZURE_
 - One B1 instance; the daily reminder job runs in-process (`SCHEDULER=on`, Always On).
 - The front end still keeps the journey's logic in the browser and saves its state to the API. The backend's
   week-based journey routes are not yet used by the front end (ticket S-4).
-- Teams delivery and Cancara AI are still the local mock and rule-based responder (`TEAMS=mock`, `AGENT=rules`).
+- Cancara is still the rule-based responder (`AGENT=rules`).
+- Teams messages are skipped, not queued, for people who have not got the app yet.
 - Everything is deleted on 13 November 2026. Code is in git; Azure data is synthetic and disposable.

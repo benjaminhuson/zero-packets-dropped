@@ -40,7 +40,7 @@ jobs:
       - name: Package
         run: |
           mkdir pkg
-          cp -r backend/dist backend/package.json backend/package-lock.json pkg/
+          cp -r backend/dist backend/assets backend/package.json backend/package-lock.json pkg/
           cp -r stride/dist pkg/public
           (cd pkg && npm ci --omit=dev --no-audit --no-fund && zip -qr ../stride.zip .)
       - uses: azure/login@v2

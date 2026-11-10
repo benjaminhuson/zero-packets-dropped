@@ -6,6 +6,8 @@
 //   asp-teamNN-stride            App Service plan, Linux (B1 unless appServiceSku says otherwise)
 //   app-teamNN-stride-<suffix>   Web app: serves the Stride front end and the API on one origin
 //   cosmos-teamNN-stride-<sfx>   Cosmos DB, serverless, keys turned off (managed identity only)
+//   id-teamNN-stride             Managed identity: the Stride bot's identity (and Graph, via a federated credential)
+//   bot-teamNN-stride-<sfx>      Azure Bot (free F0, single tenant) with the Microsoft Teams channel
 // plus Microsoft sign-in (App Service authentication) once entraClientId is passed in.
 
 @description('Two-digit team number, for example 03.')
@@ -32,6 +34,16 @@ param sessionSecret string
 @secure()
 param adminToken string
 
+@description('Turn on the Stride Teams bot (Azure Bot + Teams channel). Needs the Microsoft.BotService provider.')
+param enableTeams bool = true
+
+@description('Check-in meetings: link (pre-filled Teams link, no permissions) or graph (real meeting; needs admin consent for Calendars.ReadWrite).')
+@allowed(['link', 'graph'])
+param meetings string = 'link'
+
+@description('Azure Bot location. Bots are global resources; change only if a policy blocks "global".')
+param botLocation string = 'global'
+
 @description('Object id of the person running the deployment, so they can load demo data into Cosmos DB. Optional.')
 param deployerPrincipalId string = ''
 
@@ -49,6 +61,7 @@ var containers = [
   { name: 'starters', key: '/id' }
   { name: 'starterState', key: '/userId' }
   { name: 'notes', key: '/starterId' }
+  { name: 'teamsContacts', key: '/upn' }
 ]
 
 // ---- Data -------------------------------------------------------------------
@@ -96,12 +109,31 @@ resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   properties: { reserved: true }
 }
 
+// The bot's identity. A user-assigned managed identity means the bot needs no app secret. The web app uses it to
+// talk to Teams, and (meetings = graph) to sign in as the teamNN-stride app through a federated credential.
+resource botIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = if (enableTeams) {
+  name: 'id-${team}-stride'
+  location: location
+  tags: tags
+}
+
+var teamsSettings = enableTeams ? [
+  { name: 'TEAMS', value: 'graph' }
+  { name: 'BOT_APP_ID', value: botIdentity.properties.clientId }
+  { name: 'ENTRA_TENANT_ID', value: tenant().tenantId }
+  { name: 'MEETINGS', value: meetings }
+] : [
+  { name: 'TEAMS', value: 'mock' }
+]
+
 resource app 'Microsoft.Web/sites@2023-12-01' = {
   name: 'app-${team}-stride-${suffix}'
   location: location
   tags: tags
   kind: 'app,linux'
-  identity: { type: 'SystemAssigned' }
+  identity: enableTeams
+    ? { type: 'SystemAssigned, UserAssigned', userAssignedIdentities: { '${botIdentity.id}': {} } }
+    : { type: 'SystemAssigned' }
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
@@ -113,11 +145,12 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
       minTlsVersion: '1.2'
       http20Enabled: true
       healthCheckPath: '/api/health'
-      appSettings: [
+      appSettings: concat(teamsSettings, [
         { name: 'AUTH', value: 'easyauth' }
         { name: 'STORE', value: 'cosmos' }
         { name: 'AGENT', value: 'rules' }
-        { name: 'TEAMS', value: 'mock' }
+        { name: 'TEAM_NUMBER', value: teamNumber }
+        { name: 'ENTRA_CLIENT_ID', value: entraClientId }
         { name: 'SCHEDULER', value: 'on' }
         { name: 'STATIC_DIR', value: 'public' }
         { name: 'AZURE_COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
@@ -126,7 +159,7 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'ADMIN_TOKEN', value: adminToken }
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'false' } // we deploy a ready-built package
         { name: 'WEBSITE_HEALTHCHECK_MAXPINGFAILURES', value: '10' }
-      ]
+      ])
     }
   }
 }
@@ -142,6 +175,7 @@ resource auth 'Microsoft.Web/sites/config@2023-12-01' = if (authEnabled) {
     globalValidation: {
       requireAuthentication: false
       unauthenticatedClientAction: 'AllowAnonymous'
+      excludedPaths: ['/api/messages'] // Teams calls the bot with its own token, checked by the app
     }
     httpSettings: { requireHttps: true }
     identityProviders: {
@@ -151,13 +185,43 @@ resource auth 'Microsoft.Web/sites/config@2023-12-01' = if (authEnabled) {
           clientId: entraClientId
           openIdIssuer: '${environment().authentication.loginEndpoint}${tenant().tenantId}/v2.0'
         }
-        validation: { allowedAudiences: [entraClientId, 'api://${entraClientId}'] }
+        // Browser sign-in (ID token, audience = client id) and Teams tab SSO (access token, audience = client id with
+        // v2 tokens, or the api:// URI).
+        validation: { allowedAudiences: [entraClientId, 'api://${entraClientId}', 'api://${app.properties.defaultHostName}/${entraClientId}'] }
       }
     }
     login: {
       tokenStore: { enabled: true }
       allowedExternalRedirectUrls: []
     }
+  }
+}
+
+// ---- Teams bot -----------------------------------------------------------------------
+
+resource bot 'Microsoft.BotService/botServices@2022-09-15' = if (enableTeams) {
+  name: 'bot-${team}-stride-${suffix}'
+  location: botLocation
+  tags: tags
+  kind: 'azurebot'
+  sku: { name: 'F0' }
+  properties: {
+    displayName: 'Stride (Team ${teamNumber})'
+    endpoint: 'https://${app.properties.defaultHostName}/api/messages'
+    msaAppType: 'UserAssignedMSI'
+    msaAppId: botIdentity.properties.clientId
+    msaAppMSIResourceId: botIdentity.id
+    msaAppTenantId: tenant().tenantId
+  }
+}
+
+resource teamsChannel 'Microsoft.BotService/botServices/channels@2022-09-15' = if (enableTeams) {
+  parent: bot
+  name: 'MsTeamsChannel'
+  location: botLocation
+  properties: {
+    channelName: 'MsTeamsChannel'
+    properties: { isEnabled: true }
   }
 }
 
@@ -189,3 +253,5 @@ output webAppName string = app.name
 output hostName string = app.properties.defaultHostName
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
 output cosmosAccountName string = cosmos.name
+output botAppId string = enableTeams ? botIdentity.properties.clientId : ''
+output botPrincipalId string = enableTeams ? botIdentity.properties.principalId : ''
