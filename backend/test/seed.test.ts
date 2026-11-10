@@ -37,3 +37,16 @@ test('demo seed is safe to run again', async () => {
   assert.ok(again.every((r) => r.skipped && !r.password && !r.inviteCode));
   assert.equal((await store.listStartersForStaff('team03-priya@example.test')).length, 10);
 });
+
+test('demo seed shows who existing colleagues are linked to, and --reassign moves them', async () => {
+  const store = new MemoryStore();
+  await seedDemo(store, { ...opts, managerUpn: 'team01-priya@wrong.example', buddyUpn: 'team01-ben@wrong.example' });
+  const check = await seedDemo(store, opts);
+  assert.ok(check.every((r) => r.skipped && r.manager === 'team01-priya@wrong.example'));
+
+  const moved = await seedDemo(store, { ...opts, reassign: true });
+  assert.ok(moved.every((r) => r.moved && !r.password && !r.inviteCode));
+  assert.equal((await store.listStartersForStaff('team03-priya@example.test')).length, 10);
+  assert.equal((await store.listStartersForStaff('team01-priya@wrong.example')).length, 0);
+  assert.equal((await store.listStartersForStaff('team03-ben@example.test')).length, PERSONAS.filter((p) => p.buddy).length);
+});

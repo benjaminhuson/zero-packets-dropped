@@ -119,7 +119,8 @@ They don't need Microsoft 365 licences to sign in to Stride. Only give licences 
 team thread. The live app does the writing (via an admin-token endpoint), so it needs no database permissions and
 works from Cloud Shell. It prints their sign-in passwords and invite codes in the terminal only. It is safe to run again (it skips
 existing ones), sends nothing to Teams, and `--dry-run` shows what it would add. Different users? Set `DEMO_MANAGER_UPN`
-and `DEMO_BUDDY_UPN` in `infra/.env`.
+and `DEMO_BUDDY_UPN` in `infra/.env`. Existing demo colleagues are listed with the manager they're linked to; `--reassign` moves them
+to the manager and buddy above (for example after a mistyped username).
 
 Demo flow:
 1. Sign in as `teamNN-priya`, add a colleague (synthetic personal email, buddy `teamNN-ben@...`). Copy the invite code.

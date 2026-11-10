@@ -48,10 +48,12 @@ export interface SeededRow {
   name: string;
   email: string;
   stage: string;
+  manager: string; // who they are linked to now
   buddy: string;
   password: string | null; // set when the account is ready to sign in
   inviteCode: string | null; // set when the invite is still unused
-  skipped: boolean; // already existed
+  skipped: boolean; // already existed (and was not moved)
+  moved?: boolean; // already existed; manager and buddy changed (reassign)
 }
 
 const day = (now: Date, offset: number) => new Date(now.getTime() + offset * 86400000).toISOString().slice(0, 10);
@@ -105,7 +107,9 @@ function journeyState(p: Persona, now: Date) {
   };
 }
 
-export async function seedDemo(store: Store, opts: { managerUpn: string; buddyUpn: string; now: Date; buddyName?: string; managerName?: string }): Promise<SeededRow[]> {
+// reassign: for demo colleagues that already exist, change their line manager and buddy to the ones given
+// (e.g. if they were first linked to a mistyped username). Nothing else about them changes.
+export async function seedDemo(store: Store, opts: { managerUpn: string; buddyUpn: string; now: Date; buddyName?: string; managerName?: string; reassign?: boolean }): Promise<SeededRow[]> {
   const managerUpn = opts.managerUpn.toLowerCase();
   const buddyUpn = opts.buddyUpn.toLowerCase();
   const names = { manager: opts.managerName ?? managerUpn.split('@')[0], buddy: opts.buddyName ?? buddyUpn.split('@')[0] };
@@ -115,8 +119,15 @@ export async function seedDemo(store: Store, opts: { managerUpn: string; buddyUp
     const email = `${p.first}.${p.last}`.toLowerCase().replace(/[^a-z.]/g, '') + '@example.com';
     const name = `${p.first} ${p.last}`;
     const buddy = p.buddy ? buddyUpn : '-';
-    if (await store.findStarterByEmail(email)) {
-      rows.push({ name, email, stage: '(already there)', buddy, password: null, inviteCode: null, skipped: true });
+    const existing = await store.findStarterByEmail(email);
+    if (existing) {
+      if (opts.reassign) {
+        const moved = { ...existing, managerUpn, buddyUpn: p.buddy ? buddyUpn : null };
+        await store.saveStarter(moved);
+        rows.push({ name, email, stage: '(moved)', manager: managerUpn, buddy, password: null, inviteCode: null, skipped: false, moved: true });
+      } else {
+        rows.push({ name, email, stage: '(already there)', manager: existing.managerUpn, buddy: existing.buddyUpn ?? '-', password: null, inviteCode: null, skipped: true });
+      }
       continue;
     }
 
@@ -138,7 +149,7 @@ export async function seedDemo(store: Store, opts: { managerUpn: string; buddyUp
     if (p.invitePending) {
       const code = newInviteCode();
       await store.saveStarter({ ...account, inviteHash: sha256(code), inviteExpiresAt: new Date(opts.now.getTime() + 14 * 86400000).toISOString() });
-      rows.push({ name, email, stage: 'Invite not used yet', buddy, password: null, inviteCode: code, skipped: false });
+      rows.push({ name, email, stage: 'Invite not used yet', manager: managerUpn, buddy, password: null, inviteCode: code, skipped: false });
       continue;
     }
 
@@ -166,7 +177,7 @@ export async function seedDemo(store: Store, opts: { managerUpn: string; buddyUp
       await store.appendNote(note);
       minutes -= 90;
     }
-    rows.push({ name, email, stage: `${j.stage}: ${STAGE_NAMES[j.stage]}`, buddy, password, inviteCode: null, skipped: false });
+    rows.push({ name, email, stage: `${j.stage}: ${STAGE_NAMES[j.stage]}`, manager: managerUpn, buddy, password, inviteCode: null, skipped: false });
   }
   return rows;
 }
