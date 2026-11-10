@@ -1747,3 +1747,54 @@ body, .checkpoint, .timeline { -webkit-font-smoothing: antialiased; }
 @media (max-width: 720px) {
   .day-steps li, .contact-list > div { grid-template-columns: 1fr; gap: 0.2rem; }
 }
+
+/* ---------- Building pass photo (camera capture) ---------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.pass-photo { display: grid; gap: 0.75rem; }
+.pass-photo-why { margin: 0; line-height: 1.4; }
+.pass-photo-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.pass-photo-actions .btn,
+.pass-photo-actions label.btn { cursor: pointer; text-align: center; }
+.pass-photo-frame {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 4 / 5;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.pass-photo-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pass-photo-guide {
+  position: absolute;
+  inset: 12% 18% 8%;
+  border: 3px dashed #9be89a;
+  border-radius: 50% / 45%;
+  pointer-events: none;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.25);
+}
+.pass-photo-still {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 2px solid #024731;
+}
+.pass-photo-notice {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-left: 4px solid #c9a227;
+  background: #fffbea;
+  color: #3d3300;
+  font-weight: 600;
+  line-height: 1.4;
+}

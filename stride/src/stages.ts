@@ -14,7 +14,7 @@ export type StepKind =
   | 'date' // propose a start date
   | 'meeting' // request a check-in with the line manager
   | 'device' // Mac or Windows
-  | 'photo' // building access photo upload
+  | 'photo' // building access photo, taken with the camera or chosen from the phone
   | 'objectives' // free-text objectives
   | 'contacts' // emergency contacts
   | 'upn' // manager sets up the new starter's work email address
@@ -176,7 +176,7 @@ export const STAGES: StageDef[] = [
     steps: [
       { id: 's3-notice', title: 'Working notice', kind: 'check', owner: 'you', body: 'Confirm you have worked your notice with your previous employer, or are waiting for your start.' },
       { id: 's3-device', title: 'Device choice', kind: 'device', owner: 'you', body: 'Choose the laptop that suits the work you will do. Developer Macs are for engineers who build and run code locally.' },
-      { id: 's3-photo', title: 'Building access photo', kind: 'photo', owner: 'you', body: 'Upload a photo for the access pass of the building you are registered to. Once uploaded, it is sent off for printing, and your pass is posted to your home address when it is ready.' },
+      { id: 's3-photo', title: 'Building access photo', kind: 'photo', owner: 'you', body: 'Take a clear photo of your face with your phone camera for the access pass of the building you are registered to. Stride asks for camera access first. You can choose a photo from your phone instead. Once saved, it is sent off for printing, and your pass is posted to your home address when it is ready.' },
     ],
   },
   {

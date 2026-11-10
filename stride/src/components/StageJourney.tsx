@@ -6,6 +6,7 @@ import { Horse } from './Horse';
 import { freeSlots, type Slot } from '../calendar';
 import { LOCATIONS } from '../locations';
 import { ValuesExplorer } from './ValuesExplorer';
+import { PassPhotoCapture } from './PassPhotoCapture';
 
 export interface Actions {
   openStage: (n: number) => void;
@@ -13,7 +14,7 @@ export interface Actions {
   toggleStep: (id: string) => void;
   saveDetails: (d: Details) => void;
   setDevice: (d: 'standard-mac' | 'developer-mac' | 'windows') => void;
-  uploadPhoto: (name: string) => void;
+  uploadPhoto: (name: string, data?: string | null) => void;
   confirmNotice: () => void;
   saveObjectives: (text: string) => void;
   saveContacts: (text: string) => void;
@@ -206,16 +207,15 @@ function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step
     case 'photo':
       control = (
         <div className="step-form">
-          <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && actions.uploadPhoto(e.target.files[0].name)} />
+          {flow.photoName && !flow.photoData ? (
+            <p className="status">Photo saved: {flow.photoName}.</p>
+          ) : (
+            <PassPhotoCapture savedPhoto={flow.photoData} onSave={(data, name) => actions.uploadPhoto(name, data)} />
+          )}
           {!flow.photoName && (
             <button className="btn outline demo-confirm" onClick={() => actions.uploadPhoto('sample-building-pass-photo.jpg')}>
               Demo: use a sample photo
             </button>
-          )}
-          {flow.photoName && (
-            <p className="status">
-              Uploaded: {flow.photoName}. Your photo has been sent for printing, and your building pass will be posted to your home address once it is ready.
-            </p>
           )}
         </div>
       );

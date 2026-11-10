@@ -41,6 +41,7 @@ export interface Flow {
   noticeConfirmed: boolean;
   device: Device | null;
   photoName: string | null;
+  photoData: string | null; // building pass photo, JPEG data URL prepared in the browser (see photo.ts)
   objectives: string;
   upn: string | null; // work email address, set up by the line manager
   laptopSent: boolean;
@@ -78,6 +79,7 @@ const emptyFlow: Flow = {
   noticeConfirmed: false,
   device: null,
   photoName: null,
+  photoData: null,
   objectives: '',
   upn: null,
   laptopSent: false,
@@ -256,7 +258,7 @@ export function useJourney(userId?: string) {
 
   const setDevice = (device: Device) => update((s) => patchFlow(s, { device }));
 
-  const uploadPhoto = (name: string) => update((s) => patchFlow(s, { photoName: name }));
+  const uploadPhoto = (name: string, data: string | null = null) => update((s) => patchFlow(s, { photoName: name, photoData: data }));
 
   const confirmNotice = () => update((s) => patchFlow(s, { noticeConfirmed: true }));
 
