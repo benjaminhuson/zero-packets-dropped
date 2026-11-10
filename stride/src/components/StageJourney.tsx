@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BUDDY, BUDDY_EMAIL, LINE_MANAGER, MANAGER_EMAIL, NEW_STARTER_ROLE } from '../data';
+import { useTeam } from '../team';
 import { APPROACHING_DAYS, STAGES, JOB_FAMILY, type Step } from '../stages';
 import { hasStarted, unlockedStage, type Details, type Flow, type JourneyState } from '../store';
 import { Horse } from './Horse';
@@ -105,6 +106,7 @@ function Confetti() {
 }
 
 function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step: Step; flow: Flow; actions: Actions; locked: boolean; prereqTitle?: string; firstName: string }) {
+  const team = useTeam();
   const done = stepDone(step, flow);
   // Reading an article counts as done, so there is no tick box to go back for.
   useEffect(() => {
@@ -359,8 +361,8 @@ function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step
                 <p className="day-plan-title">Useful contacts</p>
                 <dl className="contact-list">
                   <div><dt>Reception</dt><dd>{loc.reception}</dd></div>
-                  <div><dt>Your manager</dt><dd>{LINE_MANAGER.name || 'To be confirmed'}{LINE_MANAGER.role && `, ${LINE_MANAGER.role}`}{MANAGER_EMAIL && <><br /><a href={`mailto:${MANAGER_EMAIL}`}>{MANAGER_EMAIL}</a></>}</dd></div>
-                  <div><dt>Your buddy</dt><dd>{BUDDY.name || 'To be confirmed'}{BUDDY.role && `, ${BUDDY.role}`}{BUDDY_EMAIL && <><br /><a href={`mailto:${BUDDY_EMAIL}`}>{BUDDY_EMAIL}</a></>}</dd></div>
+                  <div><dt>Your manager</dt><dd>{team.manager?.name || LINE_MANAGER.name || 'To be confirmed'}{LINE_MANAGER.role && `, ${LINE_MANAGER.role}`}{(team.manager?.upn || MANAGER_EMAIL) && <><br /><a href={`mailto:${team.manager?.upn || MANAGER_EMAIL}`}>{team.manager?.upn || MANAGER_EMAIL}</a></>}</dd></div>
+                  <div><dt>Your buddy</dt><dd>{team.buddy?.name || BUDDY.name || 'To be confirmed'}{BUDDY.role && `, ${BUDDY.role}`}{(team.buddy?.upn || BUDDY_EMAIL) && <><br /><a href={`mailto:${team.buddy?.upn || BUDDY_EMAIL}`}>{team.buddy?.upn || BUDDY_EMAIL}</a></>}</dd></div>
                   <div><dt>IT helpdesk (IT@LBG)</dt><dd>Find it on the Lloyds intranet, or use the chat button for help.</dd></div>
                 </dl>
               </div>
@@ -513,6 +515,7 @@ function StepRow({ step, flow, actions, locked, prereqTitle, firstName }: { step
 
 export function StageJourney(props: Props) {
   const { state, openStage } = props;
+  const team = useTeam();
   const f = state.flow;
   const unlocked = unlockedStage(f);
   const viewed = STAGES[state.viewStage];
@@ -647,8 +650,8 @@ export function StageJourney(props: Props) {
         </div>
         <div className="header-right">
           <span className="hello">Hi {state.firstName}</span>
-          <span className="people-chip">Manager: {LINE_MANAGER.name || 'To be confirmed'}</span>
-          <span className="people-chip">Buddy: {BUDDY.name || 'To be confirmed'}</span>
+          <span className="people-chip">Manager: {team.manager?.name || LINE_MANAGER.name || 'To be confirmed'}</span>
+          <span className="people-chip">Buddy: {team.buddy?.name || BUDDY.name || 'To be confirmed'}</span>
         </div>
       </header>
 

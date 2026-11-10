@@ -112,7 +112,9 @@ function journeyState(p: Persona, now: Date) {
 export async function seedDemo(store: Store, opts: { managerUpn: string; buddyUpn: string; now: Date; buddyName?: string; managerName?: string; reassign?: boolean }): Promise<SeededRow[]> {
   const managerUpn = opts.managerUpn.toLowerCase();
   const buddyUpn = opts.buddyUpn.toLowerCase();
-  const names = { manager: opts.managerName ?? managerUpn.split('@')[0], buddy: opts.buddyName ?? buddyUpn.split('@')[0] };
+  // "team01-priya.shah@x" -> "Priya Shah", the way Stride shows people it has no Teams name for.
+  const tidy = (upn: string) => upn.split('@')[0].replace(/^team\d+-/, '').split(/[._-]/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+  const names = { manager: opts.managerName ?? tidy(managerUpn), buddy: opts.buddyName ?? tidy(buddyUpn) };
   const rows: SeededRow[] = [];
 
   for (const p of PERSONAS) {

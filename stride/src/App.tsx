@@ -4,6 +4,7 @@ import { CancaraChat } from './components/CancaraChat';
 import { SignIn } from './components/SignIn';
 import { StaffHome } from './components/StaffHome';
 import { TeamChat } from './components/TeamChat';
+import { TeamContext } from './team';
 import { useJourney } from './store';
 import { Welcome } from './components/Welcome';
 import { api, setBearerTokens, MICROSOFT_LOGIN, MICROSOFT_LOGOUT, type Me } from './api';
@@ -48,7 +49,11 @@ export default function App() {
   if (session === 'signed-out') return <SignIn onSignedIn={check} />;
   if (session === 'offline') return <Journey />; // no API: prototype mode, this browser only
   if (session.kind === 'staff') return <StaffHome name={session.name} upn={session.upn} inTeams={IN_TEAMS} />;
-  return <Journey me={session} onSignedOut={check} />;
+  return (
+    <TeamContext.Provider value={{ manager: session.manager, buddy: session.buddy }}>
+      <Journey me={session} onSignedOut={check} />
+    </TeamContext.Provider>
+  );
 }
 
 function TeamsSignInProblem({ message }: { message: string }) {
