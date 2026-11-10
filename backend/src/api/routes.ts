@@ -227,13 +227,13 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
     // script needs no database permissions. Writes straight to the store: nothing is sent to Teams.
     r('POST', '/api/admin/seed-demo', async (c) => {
       if (!isAdmin(deps.adminToken, c.adminToken)) throw new HttpError(403, 'Admin token required');
-      const b = c.body as { managerUpn?: unknown; buddyUpn?: unknown; dryRun?: unknown } | null;
+      const b = c.body as { managerUpn?: unknown; buddyUpn?: unknown; dryRun?: unknown; reassign?: unknown } | null;
       const upn = (v: unknown, name: string) => {
         if (typeof v !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw new HttpError(400, `${name} must be a UPN (name@domain)`);
         return v;
       };
       const target = b?.dryRun === true ? new MemoryStore() : deps.store;
-      const rows = await seedDemo(target, { managerUpn: upn(b?.managerUpn, 'managerUpn'), buddyUpn: upn(b?.buddyUpn, 'buddyUpn'), now: deps.clock.now() });
+      const rows = await seedDemo(target, { managerUpn: upn(b?.managerUpn, 'managerUpn'), buddyUpn: upn(b?.buddyUpn, 'buddyUpn'), now: deps.clock.now(), reassign: b?.reassign === true });
       return { status: 200, body: { dryRun: b?.dryRun === true, rows } };
     }),
   ];
