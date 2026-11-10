@@ -100,6 +100,7 @@ export interface StarterSummary {
   stagesTotal: number;
   stepsDone: number;
   startDate: string | null;
+  waitingOnManager?: string[]; // things in the journey only the line manager can do, e.g. "Confirm the start date"
 }
 
 // Basic comms: one thread per starter, shared by the starter, their manager and their buddy.
@@ -178,7 +179,7 @@ export interface TeamsGateway {
   createCheckInMeeting(userId: UserId, when: { date: string; time: string }, topic: string): Promise<{ joinUrl: string | null; scheduleUrl?: string }>;
 }
 
-// Section 4: Cancara (AI buddy)
+// Section 4: Cancara (guide)
 export interface AgentGateway {
   answer(question: string, context: { week: number; pageTitle: string }): Promise<{ text: string; escalate: boolean }>;
 }

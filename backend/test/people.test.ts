@@ -121,6 +121,30 @@ test('saved state summary is sanitised', async () => {
   const { people } = setup();
   const asStarter: Caller = { kind: 'starter', userId: 's1', name: 'A', via: 'stride' };
   const saved = await people.saveState(asStarter, {}, { stage: -3, stageName: 42, startDate: 'soon' });
-  assert.deepEqual(saved.summary, { stage: 0, stageName: '', stagesTotal: 0, stepsDone: 0, startDate: null });
+  assert.deepEqual(saved.summary, { stage: 0, stageName: '', stagesTotal: 0, stepsDone: 0, startDate: null, waitingOnManager: [] });
   await rejects(people.saveState(manager, {}, {}), 403);
+});
+
+test('admin panel: manager sees actions and last active; buddy sees no actions; colleague sees their team', async () => {
+  const { people, store } = setup();
+  const { starter } = await people.createStarter(manager, { firstName: 'Alex', lastName: 'Kim', email: 'a@example.test', buddyUpn: 'ben.carter@example.test' });
+  const asStarter: Caller = { kind: 'starter', userId: starter.id, name: 'Alex', via: 'stride' };
+  await people.saveState(asStarter, {}, { stage: 4, stageName: 'Settle in', stagesTotal: 6, stepsDone: 12, startDate: '2026-12-01', waitingOnManager: ['Confirm the start date', 42] });
+
+  const [m] = await people.listMine(manager);
+  assert.deepEqual(m.actions, ['Confirm the start date', 'Link their work account']);
+  assert.equal(m.lastActive, '2026-11-10T09:00:00.000Z');
+  assert.equal(m.buddyUpn, 'ben.carter@example.test');
+  const [b] = await people.listMine({ kind: 'staff', upn: 'ben.carter@example.test', name: 'Ben' });
+  assert.deepEqual(b.actions, []);
+  assert.equal(b.buddyUpn, null);
+
+  await people.linkEntra(manager, starter.id, 'alex.kim@example.test');
+  assert.deepEqual((await people.listMine(manager))[0].actions, ['Confirm the start date']);
+
+  await store.saveTeamsContact({ upn: 'priya@example.test', aadObjectId: 'o', teamsUserId: '29:1', name: 'Priya Shah', serviceUrl: 's', tenantId: 't', conversationId: null, updatedAt: '' });
+  const me = await people.me(asStarter);
+  assert.ok(me.kind === 'starter');
+  assert.deepEqual(me.manager, { name: 'Priya Shah', upn: 'priya@example.test' }); // name from Teams
+  assert.deepEqual(me.buddy, { name: 'Ben Carter', upn: 'ben.carter@example.test' }); // tidied from the UPN
 });

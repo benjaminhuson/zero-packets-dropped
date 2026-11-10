@@ -9,6 +9,7 @@ import { PeopleService } from './people.js';
 import { DEV_UPN_COOKIE, SESSION_COOKIE, SESSION_HOURS } from '../auth/caller.js';
 import { signSession } from '../auth/crypto.js';
 import { seedDemo } from '../demo/seed.js';
+import { VERSION } from '../version.js';
 import { MemoryStore } from '../store/memory.js';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
@@ -89,7 +90,8 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
   };
 
   return [
-    r('GET', '/api/health', async () => ({ status: 200, body: { ok: true, service: 'stride-backend' } })),
+    r('GET', '/api/health', async () => ({ status: 200, body: { ok: true, service: 'stride-backend', version: VERSION } })),
+    r('GET', '/api/version', async () => ({ status: 200, body: VERSION })),
 
     // ---- Sign-in. Microsoft sign-in is /.auth/login/aad (App Service), not an API route. ----
     r('GET', '/api/me', async (c) => ({ status: 200, body: await people.me(c.caller) })),
@@ -111,6 +113,15 @@ export function buildRoutes(deps: Deps): { method: string; pattern: RegExp; name
       if (!deps.devAuth) throw new HttpError(404, 'Not found');
       const upn = str(c.body, 'upn').trim().toLowerCase();
       return { status: 200, body: { ok: true }, headers: { 'set-cookie': `${DEV_UPN_COOKIE}=${encodeURIComponent(upn)}; Path=/; HttpOnly; SameSite=Lax` } };
+    }),
+
+    // Local development only (AUTH=dev): sign in as a seeded new colleague without their password.
+    r('POST', '/api/dev/starter-login', async (c) => {
+      if (!deps.devAuth) throw new HttpError(404, 'Not found');
+      const email = str(c.body, 'email').trim().toLowerCase();
+      const account = await deps.store.findStarterByEmail(email);
+      if (!account) throw new HttpError(404, 'No Stride account for that email');
+      return { status: 200, body: { ok: true }, headers: startSession(account.id) };
     }),
 
     // ---- Teams ----

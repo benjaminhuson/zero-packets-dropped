@@ -158,6 +158,11 @@ app() {
   (cd "$ROOT/backend" && npm ci --no-audit --no-fund && npm run build)
   cp -r "$ROOT/backend/dist" "$ROOT/backend/assets" "$ROOT/backend/package.json" "$ROOT/backend/package-lock.json" "$pkg/"
   cp -r "$ROOT/stride/dist" "$pkg/public"
+  # Which version this is, for the footer and /api/version.
+  printf '{"commit":"%s","branch":"%s","builtAt":"%s"}\n' \
+    "$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)" \
+    "$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo)" \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$pkg/version.json"
   (cd "$pkg" && npm ci --omit=dev --no-audit --no-fund && zip -qr "$zip" .)
   echo "Uploading..."
   az webapp deploy -g "$RESOURCE_GROUP" -n "$name" --src-path "$zip" --type zip -o none

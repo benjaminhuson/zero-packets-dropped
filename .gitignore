@@ -27,3 +27,6 @@ infra/.deploy/
 
 # macOS
 .DS_Store
+
+# Written by deploy for the version footer
+backend/version.json
