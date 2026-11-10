@@ -132,6 +132,7 @@ function Journey({ me, onSignedOut }: { me?: Extract<Me, { kind: 'starter' }>; o
         state={state}
         onAsk={journey.askCancara}
         onSendToManager={journey.sendQuestionToManager}
+        onMessage={journey.messageSomeone}
         onNotifyActions={journey.notifyManagerOfActions}
         onBookCheckIn={journey.bookCheckInFromChat}
         open={chatOpen}

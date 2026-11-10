@@ -34,7 +34,7 @@ export interface Step {
   // Longer text, shown when the step is opened
   paragraphs?: string[];
   // Expandable sections, each opened separately
-  sections?: { title: string; text: string; href?: string }[];
+  sections?: { title: string; text: string; href?: string; image?: { src: string; alt: string } }[];
   openByDefault?: boolean;
   // Step id that must be done before this one opens
   after?: string;
@@ -64,9 +64,10 @@ const VALUE_SUMMARIES: Record<string, string> = {
 
 // PLACEHOLDER COPY: confirm wording and facts with the Lloyds brand and history teams before launch.
 const CANCARA_STORY = [
-  'Cancara is your AI buddy. It is here whenever you have a question, and it will point you to the next step in your journey.',
+  'Cancara is your digital buddy. It is here whenever you have a question, and it will point you to the next step in your journey.',
   'The black horse has been part of Lloyds for a very long time. It stands for strength, reliability and getting you where you need to go, which is what this journey is about.',
   'Ask Cancara anything from the button at the bottom right of the screen. If it cannot answer, it will pass your question to your line manager on Teams.',
+  'I can also send a message to your line manager or your buddy on Teams for you. Just choose Message my manager or Message my buddy in the chat.',
 ];
 
 const LLOYDS_HISTORY_SECTIONS: { title: string; text: string }[] = [
@@ -120,7 +121,7 @@ export const STAGES: StageDef[] = [
     trigger: 'Vetting is complete (Workday)',
     steps: [
       { id: 's1-details', title: 'Confirm your details', kind: 'details', owner: 'you', body: 'Linked from Workday. Check these are right.' },
-      { id: 's1-cancara', title: 'Meet Cancara, your AI buddy', kind: 'article', owner: 'you', openByDefault: true, after: 's1-details', body: 'Cancara guides you through every stage.', paragraphs: CANCARA_STORY },
+      { id: 's1-cancara', title: 'Meet Cancara, your digital buddy', kind: 'article', owner: 'you', openByDefault: true, after: 's1-details', body: 'Cancara guides you through every stage.', paragraphs: CANCARA_STORY },
       { id: 's1-history', title: 'The history of Lloyds Bank', kind: 'article', owner: 'you', after: 's1-cancara', body: 'Where we came from, and how we got here. Open each part to read more.', sections: LLOYDS_HISTORY_SECTIONS },
       { id: 's1-values', title: 'Our values', kind: 'values', owner: 'you', body: 'Tap each icon to explore the five values, one by one. Open each part below to read more.', after: 's1-history', sections: LBG_VALUES.map((v) => ({ title: v.name, text: `${VALUE_SUMMARIES[v.name]} The opposite is: ${v.opposite}` })) },
       { id: 's1-strategy', title: 'Our strategy', kind: 'article', owner: 'you', after: 's1-values', body: 'What we are working towards, and what it means for you. Open each part to read more.', sections: [
@@ -134,7 +135,7 @@ export const STAGES: StageDef[] = [
         { title: 'A note on figures', text: 'The figures here come from public reporting and may have changed. Check the latest Lloyds Banking Group publications before using them.' },
       ] },
       { id: 's1-benefits', title: 'Your benefits', kind: 'article', owner: 'you', after: 's1-strategy', body: 'What is in your package and how each part works. Open each part to read more.', sections: [
-        { title: 'Your package at a glance', text: 'As well as your salary, you get a pension, private medical cover, holiday, share plans, flexible working, family leave and discounts on Lloyds products. Many parts of the package can be tailored through the Flex benefits scheme.', href: 'https://www.lloydsbankinggroup.com/careers/why-join-us/benefits.html' },
+        { title: 'Your package at a glance', text: 'As well as your salary, you get a pension, private medical cover, holiday, share plans, flexible working, family leave and discounts on Lloyds products. Many parts of the package can be tailored through the Flex benefits scheme.', image: { src: 'https://www.lloydsbankinggroup.com/assets/images/careers/why-join-us-promo.jpg', alt: 'Lloyds Banking Group careers: why join us' }, href: 'https://www.lloydsbankinggroup.com/careers/why-join-us/benefits.html' },
         { title: 'Flex benefits: choose what matters to you', text: 'Flex lets you tailor parts of your reward package as your priorities change. Options include extra healthcare, dental plans, health assessments, critical illness cover, life assurance and holiday trading. Cashback comes through the Flex Card, Cycle2Work and a sustainable car scheme. The amount of Flex available and the cost of each option are not published on the main page, so check with HR.', href: 'https://www.lloydsbankinggroup.com/careers/why-join-us/benefits.html' },
         { title: 'Pension', text: 'You join the pension automatically. Employer contributions start at 9% when you contribute 3% of your salary, and rise to up to 15% when you contribute 6% or more. Rates in between are not listed on the main page.', href: 'https://www.lloydsbankinggroup.com/careers/why-join-us/benefits.html' },
         { title: 'Private medical cover', text: 'Private medical cover is company funded for permanent colleagues. It includes free annual cancer screenings, physiotherapy, neurodiversity assessments and menopause support. You can extend cover to eligible family members for a small fee.', href: 'https://www.lloydsbankinggroup.com/careers/why-join-us/benefits.html' },

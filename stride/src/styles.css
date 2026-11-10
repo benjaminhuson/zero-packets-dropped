@@ -311,12 +311,12 @@ li.done { color: var(--muted); }
   overflow-x: auto;
 }
 .timeline-scroll { overflow-x: auto; }
-.timeline-inner { position: relative; min-width: 760px; padding-top: 44px; }
+.timeline-inner { position: relative; min-width: 760px; padding-top: 56px; }
 .track {
   position: absolute;
   left: 0;
   right: 0;
-  top: 67px;
+  top: 79px;
   height: 6px;
   background: var(--line);
   border-radius: 6px;
@@ -332,7 +332,7 @@ li.done { color: var(--muted); }
 }
 .horse-marker {
   position: absolute;
-  top: -17px;
+  top: -30px;
   transform: translateX(-50%);
   transition: left 2.4s cubic-bezier(0.45, 0, 0.25, 1);
   line-height: 0;
@@ -1047,7 +1047,7 @@ body { font-family: 'GT Ultra Standard', 'GT Ultra', Arial, Helvetica, sans-seri
 
 /* Timeline */
 .timeline { border: 0; border-radius: var(--lb-card-radius); box-shadow: 0 1px 0 #e6e6e6; padding: 1.5rem 1rem 1.25rem; }
-.track { background: var(--lb-calm); height: 8px; top: 67px; }
+.track { background: var(--lb-calm); height: 8px; top: 79px; }
 .track-fill { background: var(--lb-accent) !important; height: 100%; }
 .node .dot { border-width: 2px; }
 .node.done .dot { background: var(--lb-racing); border-color: var(--lb-racing); }
@@ -1747,3 +1747,94 @@ body, .checkpoint, .timeline { -webkit-font-smoothing: antialiased; }
 @media (max-width: 720px) {
   .day-steps li, .contact-list > div { grid-template-columns: 1fr; gap: 0.2rem; }
 }
+
+/* Confetti burst on the offer congratulations */
+.congrats-inline { position: relative; overflow: hidden; }
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.confetti-piece {
+  position: absolute;
+  top: -12px;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+  animation-name: confettiFall;
+  animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+  animation-fill-mode: forwards;
+}
+.confetti-piece.round { width: 9px; height: 9px; border-radius: 50%; }
+@keyframes confettiFall {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--drift), 120px) rotate(var(--spin)); }
+}
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
+
+/* The horse rides over the stage circles as it passes them */
+.horse-marker { z-index: 10; }
+.node .dot { position: relative; z-index: 1; }
+
+/* Hidden race mini game */
+.race-wrap { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.race-wrap .drawer-scrim { position: absolute; inset: 0; background: rgba(0, 25, 18, 0.6); border: 0; cursor: pointer; }
+.race-card { position: relative; background: #c7ffc6; color: #000000; border-radius: 16px; padding: 1.25rem 1.4rem; width: min(640px, 100%); box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35); }
+.race-head { display: flex; justify-content: space-between; align-items: center; }
+.race-message { font-size: 1.4rem; font-weight: 700; margin: 0.5rem 0 1rem; }
+.race-lanes { display: grid; gap: 0.9rem; }
+.race-lane { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 0.6rem; }
+.race-name { font-weight: 700; }
+.race-track { position: relative; height: 56px; background: #ffffff; border-radius: 10px; border: 2px dashed #024731; overflow: hidden; }
+.race-horse { position: absolute; top: 50%; transform: translate(-50%, -50%); transition: left 0.12s linear; }
+.race-horse .horse-img { display: block; }
+.race-finish { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; background: repeating-linear-gradient(0deg, #000 0 6px, #fff 6px 12px); }
+.race-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
+
+/* Expandable timeline: every open step in one scrollable list */
+.timeline-expand { display: flex; justify-content: center; margin-top: -0.25rem; }
+.timeline-panel {
+  background: #ffffff;
+  color: #000000;
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  max-height: 340px;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.9rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+}
+.tl-title { font-weight: 700; color: #024731; }
+.tl-current .tl-title { color: #000000; }
+.tl-steps { list-style: none; padding: 0; margin: 0.3rem 0 0; display: grid; gap: 0.2rem; }
+.tl-step {
+  font: inherit;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0.35rem 0.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: inherit;
+}
+.tl-step:hover { background: #e6ffe4; }
+.tl-locked { opacity: 0.6; }
+
+/* Make "Show all steps" obvious on phones: solid, full width, readable */
+.timeline-expand { display: block; margin: 0.6rem 0 0; }
+.timeline-expand .btn,
+.timeline-expand .btn.outline {
+  width: 100%;
+  background: #024731;
+  color: #ffffff;
+  border: 2px solid #024731;
+  font-size: 1.05rem;
+  padding: 0.85rem 1rem;
+}
+.timeline-expand .btn:hover { background: #013a26; }
+.fact-image { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; margin: 0.4rem 0 0.6rem; }
+
+/* Keep stage names clear of the horse, which sits on the line above them */
+.node-label { margin-top: 22px; }

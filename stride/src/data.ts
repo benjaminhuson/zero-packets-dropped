@@ -1,9 +1,7 @@
-import { scenario } from './profile';
-
-// Synthetic work email addresses for the demo. Replace with the directory values when connected.
-const emailFor = (name: string) => `${name.toLowerCase().replace(/ /g, '.')}@lloydsbanking.example`;
-export const MANAGER_EMAIL = emailFor(scenario.manager.name);
-export const BUDDY_EMAIL = emailFor(scenario.buddy.name);
+// Line manager and buddy come from the Stride database (managers linked to starters).
+// Until that is wired into the app, these show as 'To be confirmed'.
+export const MANAGER_EMAIL = '';
+export const BUDDY_EMAIL = '';
 // All content is placeholder / mock data for the prototype.
 // Names, roles and copy must be replaced with approved content before any real use.
 
@@ -48,16 +46,16 @@ export const NEW_STARTER_ROLE = {
 
 export const LINE_MANAGER: Person = {
   id: 'lm',
-  name: scenario.manager.name,
-  role: scenario.manager.role,
+  name: '',
+  role: '',
   reportsTo: 'head',
   note: 'Your line manager. They will meet you in week one.',
 };
 
 export const BUDDY: Person = {
   id: 'buddy',
-  name: scenario.buddy.name,
-  role: scenario.buddy.role,
+  name: '',
+  role: '',
   reportsTo: 'lm',
   note: 'Your human buddy for the first 90 days.',
 };
@@ -173,10 +171,10 @@ const OFFER_DAY_PAGES: Page[] = [
     id: 'cancara',
     week: 0,
     title: 'Meet Cancara',
-    kicker: 'Offer day · Your AI buddy',
+    kicker: 'Offer day · Your digital buddy',
     kind: 'cancara',
     body: [
-      'This is Cancara, your AI buddy. Cancara will be with you throughout Stride, pointing you to the next step and answering simple questions.',
+      'This is Cancara, your digital buddy. Cancara will be with you throughout Stride, pointing you to the next step and answering simple questions.',
       'The black horse has been part of Lloyds for a long time. It is a symbol of strength, reliability and getting you where you need to go.',
     ],
     highlights: ['Cancara is always here when you need a nudge', 'Ask Cancara what happens next at any point'],
